@@ -1,1 +1,1 @@
-cse312project
+cse312 project: Recipe app
