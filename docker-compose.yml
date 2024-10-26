@@ -2,5 +2,13 @@ version: '3.8'
 services:
   web:
     build: .
+    depends_on:
+      mongo:
+        condition: service_started
     ports:
       - "8080:8080"
+
+  mongo:
+    image: mongo:4.2.5
+    ports:
+      - "27017:27017"
