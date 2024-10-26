@@ -11,19 +11,22 @@ def add_header(response):
 @app.route('/')
 def index():
     template = render_template('index.html')
-    return render_template(template)
+    response = make_response(template)
 
+    return response
 
 @app.route('/home')
 def home():
     template = render_template('home.html')
-    return render_template(template)
+    response = make_response(template)
 
+    return response
 @app.route('/recipe')
 def recipe():
     template = render_template('recipe.html')
-    return render_template(template)
+    response = make_response(template)
 
+    return response
 
 
 if __name__ == "__main__":
