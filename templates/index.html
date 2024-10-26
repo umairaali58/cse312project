@@ -1,13 +1,44 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Recipe's App</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recipe App</title>
+    <link rel="stylesheet" href="static/css/style.css">
 </head>
 <body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <ul>
+            <li><a href="#home">Home</a></li>
+            <li><a href="#recipes">Recipes</a></li>
+            <li><a href="#contact">Contact</a></li>
+        </ul>
+    </nav>
 
-    <script src="static/app.js"></script>
-<h1>Recipe App</h1>
-<img src="{{ url_for('static', filename='images/chef.jpg') }}" alt="chef" class="my_image"/>
+        <img src="static/images/chef.jpg" alt="Food" class="banner">
+
+
+    <!-- Home Page Content -->
+    <section id="home" class="content">
+        <h1>Welcome to Our Recipe App</h1>
+        <p>Discover amazing recipes and cooking tips to bring your culinary skills to the next level!</p>
+    </section>
+
+    <!-- Placeholder Sections for Other Pages -->
+    <section id="recipes" class="content">
+        <h1>Recipes</h1>
+        <p>Here you'll find a collection of our favorite recipes.</p>
+    </section>
+
+    <section id="contact" class="content">
+        <h1>Contact Us</h1>
+        <p>Have questions? Reach out to us via email at recipeapp@example.com.</p>
+    </section>
+
+    <!-- JavaScript -->
+    <script src="app.js"></script>
+
 
 
 </body>
