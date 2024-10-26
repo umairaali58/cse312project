@@ -19,9 +19,10 @@ def home():
     template = render_template('home.html')
     return render_template(template)
 
-
-
-
+@app.route('/recipe')
+def recipe():
+    template = render_template('recipe.html')
+    return render_template(template)
 
 
 

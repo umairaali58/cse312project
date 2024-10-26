@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recipe App</title>
+    <link rel="stylesheet" href="static/css/style.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <ul>
+            <li><a href="#home">Home</a></li>
+            <li><a href="recipes">Recipes</a></li>
+            <li><a href="#contact">Contact</a></li>
+        </ul>
+    </nav>
+
+        <img src="static/images/chef.jpg" alt="Food" class="banner">
+
+
+
+        <section id="recipe" class="content">
+            <h1>Here are our recipe's</h1>
+            
+            <form action="/post" method="post" enctype="application/x-www-form-urlencoded">
+                <label>Title:
+                    <input type="text" name="title"/>
+                </label>
+                <br/>
+                <label>content;
+                    <input type="text" name="content">
+                </label>
+                <input type="submit" value="Post">
+            </form>
+        </section>
+
+    <!-- JavaScript -->
+    <script src="app.js"></script>
+
+
+
+</body>
+</html>
