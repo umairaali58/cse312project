@@ -11,7 +11,7 @@ def add_header(response):
 @app.route('/')
 def index():
     template = render_template('index.html')
-    return render_template('index.html')
+    return render_template(template)
 
 
 @app.route('/home')
