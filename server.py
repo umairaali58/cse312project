@@ -1,10 +1,18 @@
-from flask import Flask, render_template
+from tempfile import template
+
+from flask import Flask, render_template, make_response
 
 app = Flask(__name__, template_folder='templates')
 
+
 @app.route('/')
 def index():
-    return render_template('index.html')
+    template = render_template('index.html')
+    response = make_response(template)
+
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
+
 
 
 
