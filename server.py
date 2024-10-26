@@ -13,6 +13,14 @@ def index():
     response.headers['X-Content-Type-Options'] = 'nosniff'
     return response
 
+@app.route('/home')
+def home():
+    template = render_template('home.html')
+    response = make_response(template)
+
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
+
 
 
 
