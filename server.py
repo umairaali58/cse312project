@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import bcrypt
 import os
 import uuid
+from html import escape
 from pymongo import MongoClient
 
 
@@ -38,18 +39,26 @@ def recipe():
     return response
 
 @app.route('/post_recipe', methods = ['POST'])
+@login_required
 def post_recipe():
-    recipe_request = request.form.get("recipe_name")
-    ingredient_request = request.form.get("ingredients")
+    recipe_request = escape(request.form.get("recipe_name"))
+    ingredient_request = escape(request.form.get("ingredients"))
 
-    recipeCollection.insert_one({"recipe" : recipe_request, "ingredients": ingredient_request})
+    recipeCollection.insert_one({"recipe" : recipe_request, "ingredients": ingredient_request, "likes" : (0,[])})
 
     recipe_find = recipeCollection.find_one({"recipe": recipe_request, "ingredients": ingredient_request})
     if recipe_find:
+
         return jsonify({"success, u inserted the recipe correctly": "good job"}), 200
 
     return render_template('recipe.html')
 # Setup Flask-Login
+
+# @app.route('/like', methods = ['POST'])
+# @login_required
+# def like():
+#     auth_token = request.cookies.get("auth_token")
+#     recipe = recipeCollection.find_one("_id": request.)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
