@@ -32,46 +32,22 @@ def index():
 
 @app.route('/recipe')
 def recipe():
-    template = render_template('recipe.html')
+    template = render_template('recipe.html', recipes = recipeCollection.find({}))
     response = make_response(template)
 
     return response
 
-@app.route('/post_recipe', methods = ['POST'])
-def post_recipe():
-    recipe_request = request.form.get("recipe_name")
-    ingredient_request = request.form.get("ingredients")
 
-    recipeCollection.insert_one({"recipe" : recipe_request, "ingredients": ingredient_request})
-
-    recipe_find = recipeCollection.find_one({"recipe": recipe_request, "ingredients": ingredient_request})
-    if recipe_find:
-        return jsonify({"success, u inserted the recipe correctly": "good job"}), 200
-
-    return render_template('recipe.html')
+# Setup MongoDB
+# client = MongoClient('mongo')
+# db = client['cse312project']
+# users_collection = db['users']
+# tokens_collection = db['tokens']
+# recipeCollection = db["recipeCollection"]
 # Setup Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'home'
-
-app.route('/post_recipe', methods = ['POST'])
-def post_recipe():
-    recipe_request = request.form.get("recipe_name")
-    ingredient_request = request.form.get("ingredients")
-
-    recipeCollection.insert_one({"recipe" : recipe_request, "ingredients": ingredient_request})
-
-    recipe_find = recipeCollection.find_one({"recipe": recipe_request, "ingredients": ingredient_request})
-    if recipe_find:
-        return jsonify({"success, u inserted the recipe correctly": "good job"}), 200
-
-    return render_template('recipe.html')
-# Setup Flask-Login
-
-client = MongoClient('mongo')
-db = client['cse312project']
-users_collection = db['users']
-tokens_collection = db['tokens']
 
 class User(UserMixin):
     def __init__(self, username):
@@ -79,6 +55,36 @@ class User(UserMixin):
 
     def get_id(self):
         return self.username
+    
+
+
+@app.route('/post_recipe', methods = ['POST'])
+def post_recipe():
+    recipe_request = request.form.get("recipe_name")
+    ingredient_request = request.form.get("ingredients")
+    user = current_user.username if current_user.is_authenticated else None
+    #If Username exists
+    if user:
+        recipeCollection.insert_one({"recipe" : recipe_request, "ingredients": ingredient_request, "username": user, "likes": (0, [])})
+        recipe_find = recipeCollection.find_one({"recipe": recipe_request, "ingredients": ingredient_request, "username": user})
+    #If username doesnt exist
+    else:
+        recipeCollection.insert_one({"recipe" : recipe_request, "ingredients": ingredient_request, "username": "Guest", "likes": (0, [])})
+        recipe_find = recipeCollection.find_one({"recipe": recipe_request, "ingredients": ingredient_request, "username": "Guest"})
+
+
+    if not recipe_find:
+        return jsonify({"recipe insertion error": "good job"}), 200
+    
+    all_recipes = recipeCollection.find({})
+    return render_template('recipe.html', username=user, recipes=all_recipes)
+# Setup Flask-Login
+
+# client = MongoClient('mongo')
+# db = client['cse312project']
+# users_collection = db['users']
+# tokens_collection = db['tokens']
+
 
 @login_manager.user_loader
 def load_user(username):
@@ -98,7 +104,6 @@ def register():
 
     confirm_password = data.get('confirm_password')
 
-    
     if password != confirm_password:
         return jsonify({"error": "Passwords do not match"}), 400
    
@@ -109,11 +114,8 @@ def register():
         return jsonify({"error": "Username already taken, please return to the auth page and use a different username"}), 400
 
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
- 
     users_collection.insert_one({"username": username, "password": hashed_password})
-
     return make_response(redirect('/home'))
-
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -126,12 +128,13 @@ def login():
         user_obj = User(username=username)
         login_user(user_obj)
 
-        # Generate and store the token in plain text for matching
+        # Generate a plain token and store its hash in the database
         token = str(uuid.uuid4())
-        tokens_collection.insert_one({"username": username, "token": token})
+        token_hash = generate_password_hash(token)
+        tokens_collection.replace_one({"username": username}, {"username": username, "token": token_hash}, upsert=True)
 
-        # Set the token as a cookie
-        response = make_response(redirect(url_for('home')))
+        # Set the plain token as a cookie
+        response = make_response(redirect('/home'))
         response.set_cookie('auth_token', token, httponly=True, max_age=3600)
         return response
 
@@ -139,30 +142,29 @@ def login():
 
 
 @app.route('/logout', methods=['POST'])
-@login_required
 def logout():
     token = request.cookies.get('auth_token')
     if token:
         tokens_collection.delete_one({"token": generate_password_hash(token)})
 
     logout_user()
-    response = make_response(redirect('/'))
+    response = make_response(redirect(url_for('home')))
     response.delete_cookie('auth_token')
     return response
+
 
 
 @app.route('/home', methods=['GET'])
 def home():
     token = request.cookies.get('auth_token')
-    if token:
-        user_token = tokens_collection.find_one({"token": token})
-        if user_token:
-            username = user_token['username']
-            return render_template('home.html', username=username)
+    if current_user.is_authenticated:
+        # Retrieve the stored hashed token for the current user
+        user_token = tokens_collection.find_one({"username": current_user.username})
+        if user_token and check_password_hash(user_token['token'], token):
+            return render_template('home.html', username=current_user.username)
     
     # If no valid token is found, redirect to the login page
     return render_template('home.html', username=None)
-
 
 
 @app.route('/auth', methods=['GET'])

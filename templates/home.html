@@ -5,9 +5,16 @@
     <title>Recipe App - Home</title>
 </head>
 <body>
+    <nav class="navbar"></nav>
+        <ul>
+            <li><a href="/home">Home</a></li>
+            <li><a href="/recipe">Recipes</a></li>
+            <li><a href="/contact">Contact</a></li>
+        </ul>
+    </nav>
     <h1>Welcome to the Recipe App</h1>
     {% if username %}
-        <p>Hello, {{ username }}!</p>
+        <p>Hello, {{ username }}!, You are now logged in and have access to contribute to our <a href="/recipe">recipe Page!</a></p>
         <form action="/logout" method="POST">
             <button type="submit">Logout</button>
         </form>
