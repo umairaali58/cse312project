@@ -10,6 +10,10 @@ import uuid
 
 app = Flask(__name__, template_folder='templates')
 
+client = MongoClient('mongo')
+db = client['cse312project']
+users_collection = db['users']
+tokens_collection = db['tokens']
 # app.config['MONGO_URI'] = 'mongodb+srv://farhanmukit0:LnBsfo2rFTk0OSFF@cluster0.otbjk4d.mongodb.net/recipeapp?tls=true&tlsAllowInvalidCertificates=true'
 
 
@@ -53,10 +57,7 @@ def recipe():
     return response
 
 # Setup MongoDB
-client = MongoClient('mongo')
-db = client['cse312project']
-users_collection = db['users']
-tokens_collection = db['tokens']
+
 
 # Setup Flask-Login
 login_manager = LoginManager()
@@ -83,29 +84,37 @@ def register():
     data = request.form
     username = data.get('username')
     password = data.get('password')
-    if username and password:
-        print(username)
-        print(password)
-
     confirm_password = data.get('confirm_password')
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    # hashpass_db = bcrypt.checkpw(password.encode('utf-8'), hashed_password)
 
-    # Ensure data is being retrieved correctly
+
+   
+    userinfo = users_collection.find_one({"username": username})
     if not username or not password or not confirm_password:
         return jsonify({'error': 'All fields are required'}), 400
-
-    if users_collection.find_one({"username": username}):
+    if userinfo:
         return jsonify({"error": "Username already taken"}), 400
+    if password != confirm_password:
+        return jsonify({"error": "Passwords do not match"}), 400
 
-    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-    # print(hashed_password)
-    # if username and password:
-    #     print(username)
-    #     print(password)
-    #     print(hashed_password)
-        # jsonify({"username": username, "password": hashed_password})    
-    users_collection.insert_one({"username": username, "password": hashed_password})
+    if not userinfo:
+        # redirect = redirect(url_for('home'))
+        users_collection.insert_one({"username": username, "password": hashed_password})
+        
+        return jsonify({"success": "User registered successfully"}), 200
 
-    return jsonify({"success": "User registered successfully"}), 200
+
+    
+    return jsonify({"error": "An error occurred"}), 400
+    # Ensure data is being retrieved correctly
+   
+
+    # if users_collection.find_one({"username": username}):
+    #     return jsonify({"error": "Username already taken"}), 400
+
+    
+    # users_collection.insert_one({"username": username, "password": hashed_password})
 
 
 
