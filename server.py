@@ -36,13 +36,11 @@ def recipe():
     return response
 
 
-# Setup MongoDB
 client = MongoClient('mongo')
 db = client['cse312project']
 users_collection = db['users']
 tokens_collection = db['tokens']
 
-# Setup Flask-Login
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -87,7 +85,7 @@ def register():
  
     users_collection.insert_one({"username": username, "password": hashed_password})
 
-    return render_template('auth.html')
+    return make_response(redirect('/home'))
 
 
 @app.route('/login', methods=['POST'])
@@ -101,34 +99,44 @@ def login():
         user_obj = User(username=username)
         login_user(user_obj)
 
+        # Generate and store the token in plain text for matching
         token = str(uuid.uuid4())
-        token_hash = generate_password_hash(token)
-        tokens_collection.insert_one({"username": username, "token": token_hash})
+        tokens_collection.insert_one({"username": username, "token": token})
 
-        response = jsonify({"success": "Logged in successfully"})
+        # Set the token as a cookie
+        response = make_response(redirect(url_for('home')))
         response.set_cookie('auth_token', token, httponly=True, max_age=3600)
-        return render_template('home.html', username=username)
+        return response
 
     return render_template('home_invalid_pass.html', username=None)
+
 
 @app.route('/logout', methods=['POST'])
 @login_required
 def logout():
     token = request.cookies.get('auth_token')
     if token:
-        token_hash = generate_password_hash(token)
-        tokens_collection.delete_one({"token": token_hash})
+        tokens_collection.delete_one({"token": generate_password_hash(token)})
 
     logout_user()
-    response = jsonify({"success": "Logged out successfully"})
+    response = make_response(redirect('/'))
     response.delete_cookie('auth_token')
-    return render_template('home.html', username=None)
+    return response
+
 
 @app.route('/home', methods=['GET'])
 def home():
-    if current_user.is_authenticated:
-        return render_template('home.html', username=current_user.username)
+    token = request.cookies.get('auth_token')
+    if token:
+        user_token = tokens_collection.find_one({"token": token})
+        if user_token:
+            username = user_token['username']
+            return render_template('home.html', username=username)
+    
+    # If no valid token is found, redirect to the login page
     return render_template('home.html', username=None)
+
+
 
 @app.route('/auth', methods=['GET'])
 def auth():
