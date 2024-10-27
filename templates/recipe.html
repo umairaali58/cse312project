@@ -29,7 +29,10 @@
                     <p>Ingredients :  {{ recipe['ingredients'] }}</p>
                     <p>Posted by : {{ recipe['username'] }}</p>
                     <p>Likes : {{ recipe['likes'][0] }}</p>
-                    <button class="like-button" data-id="{{ recipe['id'] }}">Like</button>
+                    <form action="/like" method="post" style="display:inline;">
+                        <input type="hidden" name="recipe_id" value="{{ recipe['_id'] }}">
+                        <button type="submit" class="like-button">Like</button>
+                    </form>
                 </div>
                 {% endfor %}
         
