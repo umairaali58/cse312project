@@ -5,6 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import bcrypt
 import os
 import uuid
+import hashlib
 from pymongo import MongoClient
 
 
@@ -66,7 +67,8 @@ def like_post():
     if authToken and recipe:
         recipeLikes = recipe["likes"][0]
         recipeLikeList = recipe["likes"][1]
-        authTokenHash = generate_password_hash(authToken)
+        authTokenHash = hashlib.sha256(authToken.encode()).hexdigest()
+
         if authTokenHash not in recipeLikeList:
             recipeLikes += 1
             recipeLikeList.append(authTokenHash)
