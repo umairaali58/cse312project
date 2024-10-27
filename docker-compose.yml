@@ -6,13 +6,28 @@
 #       - "8080:8080"
 
 
+# version: '3.8'
+# services:
+#  mongo:
+#   image: mongo:4.2.5
+#  app:
+#   build: .
+#   environment:
+#     WAIT_HOSTS: mongo:27017
+#   ports:
+#   - '8080:8080'
+
 version: '3.8'
 services:
- mongo:
-  image: mongo:4.2.5
- app:
-  build: .
-  environment:
-    WAIT_HOSTS: mongo:27017
-  ports:
-  - '8080:8080'
+  web:
+    build: .
+    depends_on:
+      mongo:
+        condition: service_started
+    ports:
+      - "8080:8080"
+
+  mongo:
+    image: mongo:4.2.5
+    ports:
+      - "27017:27017"

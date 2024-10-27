@@ -7,9 +7,26 @@ import bcrypt
 import os
 import uuid
 
+
 app = Flask(__name__, template_folder='templates')
 
-"will add headers to any response.  Edit it to add more headers as needed "
+# app.config['MONGO_URI'] = 'mongodb+srv://farhanmukit0:LnBsfo2rFTk0OSFF@cluster0.otbjk4d.mongodb.net/recipeapp?tls=true&tlsAllowInvalidCertificates=true'
+
+
+# #PASS
+# app.config['SECRET_KEY'] = 'LnBsfo2rFTk0OSFF'
+# app.config['UPLOAD_FOLDER'] = 'static/media'
+
+# app.config['MONGO_URI'] = 'mongodb+srv://farhanmukit0:Farhan10451!@cluster0.otbjk4d.mongodb.net/recipeapp?tls=true&tlsAllowInvalidCertificates=true'
+
+
+# #PASS
+# app.config['SECRET_KEY'] = 'LnBsfo2rFTk0OSFF'
+# app.config['UPLOAD_FOLDER'] = 'static/media'
+
+
+
+# "will add headers to any response.  Edit it to add more headers as needed "
 @app.after_request
 def add_header(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -36,7 +53,7 @@ def recipe():
     return response
 
 # Setup MongoDB
-client = MongoClient('mongodb://localhost:27017/')
+client = MongoClient('mongo')
 db = client['cse312project']
 users_collection = db['users']
 tokens_collection = db['tokens']
@@ -59,6 +76,7 @@ def load_user(username):
     if user:
         return User(username=user['username'])
     return None
+# mongodb+srv://farhanmukit0:<db_password>@cluster0.otbjk4d.mongodb.net/
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -79,49 +97,17 @@ def register():
         return jsonify({"error": "Username already taken"}), 400
 
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-    print(hashed_password)
-    if username and password:
-        print(username)
-        print(password)
-        print(hashed_password)
-        jsonify({"username": username, "password": hashed_password})    
+    # print(hashed_password)
+    # if username and password:
+    #     print(username)
+    #     print(password)
+    #     print(hashed_password)
+        # jsonify({"username": username, "password": hashed_password})    
     users_collection.insert_one({"username": username, "password": hashed_password})
 
     return jsonify({"success": "User registered successfully"}), 200
 
-# @app.route('/login', methods=['POST'])
-# def login():
-#     data = request.form
-#     username = data.get('username')
-#     password = data.get('password')
 
-#     user = users_collection.find_one({"username": username})
-#     if user and bcrypt.checkpw(password.encode('utf-8'), user['password']):
-#         user_obj = User(username=username)
-#         login_user(user_obj)
-
-#         token = str(uuid.uuid4())
-#         token_hash = generate_password_hash(token)
-#         tokens_collection.insert_one({"username": username, "token": token_hash})
-
-#         response = jsonify({"success": "Logged in successfully"})
-#         response.set_cookie('auth_token', token, httponly=True, max_age=3600)
-#         return response
-
-#     return jsonify({"error": "Invalid username or password"}), 400
-
-# @app.route('/logout', methods=['POST'])
-# @login_required
-# def logout():
-#     token = request.cookies.get('auth_token')
-#     if token:
-#         token_hash = generate_password_hash(token)
-#         tokens_collection.delete_one({"token": token_hash})
-
-#     logout_user()
-#     response = jsonify({"success": "Logged out successfully"})
-#     response.delete_cookie('auth_token')
-#     return response
 
 @app.route('/home', methods=['GET'])
 def home():
