@@ -1,11 +1,11 @@
-from flask import Flask, render_template, make_response
-from flask import request, redirect, url_for, jsonify
+from flask import Flask, render_template, make_response, request, url_for, jsonify, redirect
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
-from pymongo import MongoClient
 import bcrypt
 import os
 import uuid
+from pymongo import MongoClient
+
 
 
 app = Flask(__name__, template_folder='templates')
@@ -15,6 +15,8 @@ client = MongoClient('mongo')
 db = client['cse312project']
 users_collection = db['users']
 tokens_collection = db['tokens']
+recipeCollection = db["recipeCollection]
+
 
 @app.after_request
 def add_header(response):
@@ -35,13 +37,18 @@ def recipe():
 
     return response
 
+@app.route('/post_recipe', methods = ['POST'])
+def post_recipe():
+    recipe_request = request.form.get("recipe_name")
+    ingredient_request = request.form.get("ingredients")
 
-# Setup MongoDB
-client = MongoClient('mongo')
-db = client['cse312project']
-users_collection = db['users']
-tokens_collection = db['tokens']
+    recipeCollection.insert_one({"recipe" : recipe_request, "ingredients": ingredient_request})
 
+    recipe_find = recipeCollection.find_one({"recipe": recipe_request, "ingredients": ingredient_request})
+    if recipe_find:
+        return jsonify({"success, u inserted the recipe correctly": "good job"}), 200
+
+    return render_template('recipe.html')
 # Setup Flask-Login
 
 login_manager = LoginManager()
