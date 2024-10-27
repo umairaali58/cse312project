@@ -107,15 +107,8 @@ def register():
 
     
     return jsonify({"error": "An error occurred"}), 400
-    # Ensure data is being retrieved correctly
-   
 
-    # if users_collection.find_one({"username": username}):
-    #     return jsonify({"error": "Username already taken"}), 400
-
-    
-    # users_collection.insert_one({"username": username, "password": hashed_password})
-
+@app.route('/login', methods=['POST'])
 
 
 @app.route('/home', methods=['GET'])
