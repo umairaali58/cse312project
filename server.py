@@ -1,4 +1,5 @@
-from flask import Flask, render_template, make_response
+from flask import Flask, render_template, make_response, request
+
 
 app = Flask(__name__, template_folder='templates')
 
@@ -28,6 +29,9 @@ def recipe():
 
     return response
 
+@app.route('/post_recipe', methods = ['POST'])
+def post_recipe():
+    print(request.form.get('Recipe Name'))
 
 if __name__ == "__main__":
     app.run(debug=True)
