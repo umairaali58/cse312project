@@ -1,3 +1,4 @@
+from bson import ObjectId
 from flask import Flask, render_template, make_response, request, url_for, jsonify, redirect
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -56,7 +57,25 @@ class User(UserMixin):
     def get_id(self):
         return self.username
     
+@app.route("/like", methods = ['POST'])
+def like_post():
+    recipId = request.form.get('recipe_id')
+    authToken = request.cookies.get('auth_token', None)
+    recipe = recipeCollection.find_one({"_id": ObjectId(recipId)})
 
+    if authToken and recipe:
+        recipeLikes = recipe["likes"][0]
+        recipeLikeList = recipe["likes"][1]
+        authTokenHash = generate_password_hash(authToken)
+        if authTokenHash not in recipeLikeList:
+            recipeLikes += 1
+            recipeLikeList.append(authTokenHash)
+            recipeCollection.update_one(
+                {"_id": ObjectId(recipId)},
+                {"$set": {"likes": (recipeLikes,recipeLikeList)}}
+            )
+
+    return redirect(url_for('recipe'))
 
 @app.route('/post_recipe', methods = ['POST'])
 def post_recipe():
