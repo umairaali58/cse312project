@@ -1,5 +1,8 @@
 from flask import Flask, render_template, make_response, request
-
+from pymongo import MongoClient
+mongoClient = MongoClient("mongo")
+dataBase = mongoClient["recipe_database"]
+recipeCollection = dataBase["recipeCollection"]
 
 app = Flask(__name__, template_folder='templates')
 
@@ -31,7 +34,9 @@ def recipe():
 
 @app.route('/post_recipe', methods = ['POST'])
 def post_recipe():
-    print(request.form.get('Recipe Name'))
+    recipe_request = request.form.get("recipe_name")
+    ingredient_request = request.form.get("ingredients")
 
+    recipeCollection.insert_one({"recipe" : recipe_request, "ingredients": ingredient_request})
 if __name__ == "__main__":
     app.run(debug=True)
