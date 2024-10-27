@@ -22,16 +22,29 @@
 
         <section id="recipe" class="content">
             <h1>Here are our recipe's</h1>
+            <div class="container">
+                {% for recipe in recipes|reverse %}
+                <div class="recipe-card" >
+                    <p>Recipe Name : {{ recipe['recipe'] }}</p>
+                    <p>Ingredients :  {{ recipe['ingredients'] }}</p>
+                    <p>Posted by : {{ recipe['username'] }}</p>
+                    <p>Likes : {{ recipe['likes'][0] }}</p>
+                    <button class="like-button" data-id="{{ recipe['id'] }}">Like</button>
+                </div>
+                {% endfor %}
+        
+            </div>
+        
             
-            <form action="/post" method="post" enctype="application/x-www-form-urlencoded">
+            <form action="/post_recipe" method="POST" enctype="application/x-www-form-urlencoded">
                 <label>Title:
-                    <input type="text" name="title"/>
+                    <input type="text" name="recipe_name"/>
                 </label>
                 <br/>
-                <label>content;
-                    <input type="text" name="content">
+                <label>Ingredients:
+                    <input type="text" name="ingredients">
                 </label>
-                <input type="submit" value="Post">
+                <button type="submit">Submit</button>
             </form>
         </section>
 
