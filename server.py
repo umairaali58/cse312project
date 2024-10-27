@@ -35,12 +35,6 @@ def recipe():
     response = make_response(template)
 
     return response
-@app.route('/recipe')
-def recipe():
-    template = render_template('recipe.html')
-    response = make_response(template)
-    return response
-
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -67,8 +61,8 @@ def register():
     password = data.get('password')
     confirm_password = data.get('confirm_password')
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-    # hashpass_db = bcrypt.checkpw(password.encode('utf-8'), hashed_password)
 
+   
     userinfo = users_collection.find_one({"username": username})
     if not username or not password or not confirm_password:
         return jsonify({'error': 'All fields are required'}), 400
@@ -78,6 +72,7 @@ def register():
         return jsonify({"error": "Passwords do not match"}), 400
 
     if not userinfo:
+        # redirect = redirect(url_for('home'))
         users_collection.insert_one({"username": username, "password": hashed_password})
         
         return jsonify({"success": "User registered successfully"}), 200
@@ -85,8 +80,6 @@ def register():
 
     
     return jsonify({"error": "An error occurred"}), 400
-
-@app.route('/login', methods=['POST'])
 
 
 @app.route('/home', methods=['GET'])
