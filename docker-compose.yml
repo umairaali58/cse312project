@@ -7,7 +7,6 @@ services:
         condition: service_started
     ports:
       - "8080:8080"
-
   mongo:
     image: mongo:4.2.5
     ports:
