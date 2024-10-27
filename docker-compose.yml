@@ -1,6 +1,18 @@
+# version: '3.8'
+# services:
+#   web:
+#     build: .
+#     ports:
+#       - "8080:8080"
+
+
 version: '3.8'
 services:
-  web:
-    build: .
-    ports:
-      - "8080:8080"
+ mongo:
+  image: mongo:4.2.5
+ app:
+  build: .
+  environment:
+    WAIT_HOSTS: mongo:27017
+  ports:
+  - '8080:8080'
