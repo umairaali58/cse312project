@@ -1,10 +1,11 @@
-from flask import Flask, render_template, make_response, request
+from flask import Flask, render_template, make_response, request, url_for, jsonify
 from pymongo import MongoClient
+app = Flask(__name__, template_folder='templates')
 mongoClient = MongoClient("mongo")
 dataBase = mongoClient["recipe_database"]
 recipeCollection = dataBase["recipeCollection"]
 
-app = Flask(__name__, template_folder='templates')
+
 
 "will add headers to any response.  Edit it to add more headers as needed "
 @app.after_request
@@ -38,5 +39,12 @@ def post_recipe():
     ingredient_request = request.form.get("ingredients")
 
     recipeCollection.insert_one({"recipe" : recipe_request, "ingredients": ingredient_request})
+
+    recipe_find = recipeCollection.find_one({"recipe": recipe_request, "ingredients": ingredient_request})
+    if recipe_find:
+        return jsonify({"success, u inserted the recipe correctly": "good job"}), 200
+
+    return render_template('recipe.html')
+
 if __name__ == "__main__":
     app.run(debug=True)
