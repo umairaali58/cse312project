@@ -15,7 +15,7 @@ client = MongoClient('mongo')
 db = client['cse312project']
 users_collection = db['users']
 tokens_collection = db['tokens']
-recipeCollection = db["recipeCollection]
+recipeCollection = db["recipeCollection"]
 
 
 @app.after_request
