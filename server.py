@@ -34,6 +34,7 @@ def index():
 
 @app.route('/recipe')
 def recipe():
+    global all_recipes
     template = render_template('recipe.html', recipes = recipeCollection.find({}))
     response = make_response(template)
 
@@ -80,6 +81,8 @@ def like_post():
 
     return redirect(url_for('recipe'))
 
+all_recipes = recipeCollection.find({})
+
 @app.route('/post_recipe', methods = ['POST'])
 def post_recipe():
     recipe_request = request.form.get("recipe_name")
@@ -98,8 +101,9 @@ def post_recipe():
     if not recipe_find:
         return jsonify({"recipe insertion error": "good job"}), 200
     
-    all_recipes = recipeCollection.find({})
-    return render_template('recipe.html', username=user, recipes=all_recipes)
+    
+    return make_response(redirect(url_for('recipe')))
+    #return render_template('recipe.html', username=user, recipes=all_recipes)
 # Setup Flask-Login
 
 # client = MongoClient('mongo')
@@ -120,9 +124,6 @@ def register():
     data = request.form
     username = data.get('username')
     password = data.get('password')
-    if username and password:
-        print(username)
-        print(password)
 
     confirm_password = data.get('confirm_password')
 
@@ -179,12 +180,14 @@ def logout():
 @app.route('/home', methods=['GET'])
 def home():
     token = request.cookies.get('auth_token')
-    if current_user.is_authenticated:
+    if token: 
+        hashed_token = hashlib.sha256(token.encode()).hexdigest()
+    # if current_user.is_authenticated:
         # Retrieve the stored hashed token for the current user
-        user_token = tokens_collection.find_one({"username": current_user.username})
+        user_token = tokens_collection.find_one({"token": hashed_token})
         if user_token and user_token['token'] == hashlib.sha256(token.encode()).hexdigest():
-            return render_template('home.html', username=current_user.username)
-    
+            return render_template('home.html', username=user_token['username'])
+        
     # If no valid token is found, redirect to the login page
     return render_template('home.html', username=None)
 
