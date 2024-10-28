@@ -68,10 +68,11 @@ def like_post():
         recipeLikes = recipe["likes"][0]
         recipeLikeList = recipe["likes"][1]
         authTokenHash = hashlib.sha256(authToken.encode()).hexdigest()
+        username = tokens_collection.find_one({"token" : authTokenHash})["username"]
 
-        if authTokenHash not in recipeLikeList:
+        if username not in recipeLikeList:
             recipeLikes += 1
-            recipeLikeList.append(authTokenHash)
+            recipeLikeList.append(username)
             recipeCollection.update_one(
                 {"_id": ObjectId(recipId)},
                 {"$set": {"likes": (recipeLikes,recipeLikeList)}}
