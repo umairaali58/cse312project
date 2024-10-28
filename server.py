@@ -104,6 +104,8 @@ def post_recipe():
     
     return make_response(redirect(url_for('recipe')))
     #return render_template('recipe.html', username=user, recipes=all_recipes)
+
+    
 # Setup Flask-Login
 
 # client = MongoClient('mongo')
