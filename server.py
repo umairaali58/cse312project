@@ -151,11 +151,11 @@ def login():
 
         # Generate a plain token and store its hash in the database
         token = str(uuid.uuid4())
-        token_hash = generate_password_hash(token)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
         tokens_collection.replace_one({"username": username}, {"username": username, "token": token_hash}, upsert=True)
 
         # Set the plain token as a cookie
-        response = make_response(redirect('/home'))
+        response = make_response(redirect('home'))
         response.set_cookie('auth_token', token, httponly=True, max_age=3600)
         return response
 
@@ -166,7 +166,7 @@ def login():
 def logout():
     token = request.cookies.get('auth_token')
     if token:
-        tokens_collection.delete_one({"token": generate_password_hash(token)})
+        tokens_collection.delete_one({"token": hashlib.sha256(token.encode()).hexdigest()})
 
     logout_user()
     response = make_response(redirect(url_for('home')))
@@ -181,7 +181,7 @@ def home():
     if current_user.is_authenticated:
         # Retrieve the stored hashed token for the current user
         user_token = tokens_collection.find_one({"username": current_user.username})
-        if user_token and check_password_hash(user_token['token'], token):
+        if user_token and user_token['token'] == hashlib.sha256(token.encode()).hexdigest():
             return render_template('home.html', username=current_user.username)
     
     # If no valid token is found, redirect to the login page
