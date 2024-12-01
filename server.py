@@ -2,11 +2,13 @@ from bson import ObjectId
 from flask import Flask, render_template, make_response, request, url_for, jsonify, redirect
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 import bcrypt
 import os
 import uuid
 import hashlib
 from pymongo import MongoClient
+from PIL import Image
 
 
 
@@ -18,6 +20,40 @@ db = client['cse312project']
 users_collection = db['users']
 tokens_collection = db['tokens']
 recipeCollection = db["recipeCollection"]
+
+# configs for image uploads
+allowed_image_extensions = {'png', 'jpg', 'jpeg', 'gif'}
+upload_folder = 'static/uploads'
+app.config['upload_folder'] = upload_folder
+
+
+
+def allowed_file(file):
+    """
+    Determines if an uploaded file is an allowed image format. It attempts to
+    open the file using the Pillow library to verify its validity as an image.
+    If the image cannot be opened or verified, it is rejected. Only files with
+    extensions matching predefined allowed image extensions are accepted.
+
+    :param file: A file object that is being checked to see if it is a valid
+                 and allowed image type.
+    :type file: FileStorage
+    :return: A boolean indicating whether the file is a valid and allowed
+             image type.
+    :rtype: bool
+    """
+    try:
+        image = Image.open(file)
+        image.verify()
+    except (IOError, SyntaxError) as e:
+        return False
+    filename = file.filename
+    if filename:
+        extension = filename.rsplit('.', 1)[-1].lower()
+        if extension in allowed_image_extensions:
+            return True
+    return False
+
 
 
 @app.after_request
