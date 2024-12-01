@@ -11,5 +11,3 @@ services:
       - ./static/uploads:/usr/src/app/static/uploads
   mongo:
     image: mongo:4.2.5
-    ports:
-      - "27017:27017"
