@@ -23,8 +23,8 @@ recipeCollection = db["recipeCollection"]
 
 # configs for image uploads
 allowed_image_extensions = {'png', 'jpg', 'jpeg', 'gif'}
-upload_folder = 'static/uploads'
-app.config['upload_folder'] = upload_folder
+UPLOAD_FOLDER = 'static/uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 
 
@@ -70,7 +70,7 @@ def generate_file_name_for_storage():
     :return: A unique generated file name for storage.
     :rtype: str
     """
-    fileCount = len(os.listdir(upload_folder))
+    fileCount = len(os.listdir(UPLOAD_FOLDER))
     return "media" + str(fileCount + 1)
 
 
@@ -157,7 +157,7 @@ def post_recipe():
         generated_filename =  generate_file_name_for_storage()
         extension = file.filename.rsplit('.', 1)[-1].lower()
         stored_file_name = generated_filename + extension
-        full_file_path = os.path.join(app.config['upload_folder'], stored_file_name)
+        full_file_path = os.path.join(app.config['UPLOAD_FOLDER'], stored_file_name)
         # save the file
         file.save(full_file_path)
 
