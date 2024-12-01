@@ -27,6 +27,8 @@
                 {% for recipe in recipes|reverse %}
                 <div class="recipe-card" >
                     <p>Recipe Name : {{ recipe['recipe'] }}</p>
+                    {#  Slice off the 'static/' prefix and display the image                  #}
+                    <img src="{{ url_for('static', filename=recipe['image'][7:]) }}" alt="{{ recipe['recipe'] }}" class="recipe-image">
                     <p>Ingredients :  {{ recipe['ingredients'] }}</p>
                     <p>Posted by : {{ recipe['username'] }}</p>
                     <p>Likes : {{ recipe['likes'][0] }}</p>
