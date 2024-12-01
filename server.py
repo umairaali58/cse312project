@@ -9,6 +9,7 @@ import uuid
 import hashlib
 from pymongo import MongoClient
 from PIL import Image
+from flask_talisman import Talisman
 
 
 
@@ -16,7 +17,7 @@ app = Flask(__name__, template_folder='templates')
 app.config['SECRET_KEY'] = os.urandom(24)
 UPLOAD_FOLDER = 'static/uploads/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
+Talisman(app)
 client = MongoClient('mongo')
 db = client['cse312project']
 users_collection = db['users']
