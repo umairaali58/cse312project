@@ -215,7 +215,7 @@ def register():
         return jsonify({"error": "Username already taken, please return to the auth page and use a different username"}), 400
 
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-    users_collection.insert_one({"username": username, "password": hashed_password})
+    users_collection.insert_one({"username": username, "password": hashed_password, "friends": []})
     return make_response(redirect('/home'))
 
 @app.route('/login', methods=['POST'])
@@ -268,6 +268,32 @@ def home():
         
     # If no valid token is found, redirect to the login page
     return render_template('home.html', username=None)
+
+@app.route('/add_friend', methods=['POST'])
+@login_required
+def add_friend():
+    data = request.form
+    user = data.get('username')
+
+    if not user:
+        return jsonify({"error": "Target username is required"}), 400
+
+    if user == current_user.username:
+        return jsonify({"error": "You cannot send a friend request to yourself"}), 400
+
+    target_user = users_collection.find_one({"username": user})
+    if not target_user:
+        return jsonify({"error": "User not found"}), 404
+
+    if user in current_user.friends:
+        return jsonify({"error": "You are already friends"}), 400
+        
+    users_collection.update_one(
+        {"username": user},
+        {"$addToSet": {"friend_requests": current_user.username}}
+    )
+
+    return jsonify({"success": f"added new friend"}), 200
 
 
 @app.route('/auth', methods=['GET'])
