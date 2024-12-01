@@ -61,6 +61,17 @@ def allowed_file(file):
     return False
 
 
+def resize_image_to_320x320(input_image):
+    # create a temp image for resizing
+    tempImage = input_image + "__temp_image"
+    # resize and save the image
+    with Image.open(input_image) as image:
+        extension = image.format
+        image.thumbnail((320, 320))
+        image.save(tempImage, format=extension)
+    # remove the original image, and rename the temp image to its original name
+    os.remove(input_image)
+    os.rename(tempImage, input_image)
 
 def generate_file_name_for_storage():
     """
@@ -161,6 +172,8 @@ def post_recipe():
         full_file_path = os.path.join(app.config['UPLOAD_FOLDER'], stored_file_name)
         # save the file
         file.save(full_file_path)
+        # change the dimensions of the image for better display
+        resize_image_to_320x320(full_file_path)
 
         if username:
             recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": username, "likes": (0, []), "image": full_file_path})
