@@ -23,7 +23,7 @@ recipeCollection = db["recipeCollection"]
 
 # configs for image uploads
 allowed_image_extensions = {'png', 'jpg', 'jpeg', 'gif'}
-UPLOAD_FOLDER = 'static/uploads'
+UPLOAD_FOLDER = 'static/uploads/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 
@@ -156,7 +156,7 @@ def post_recipe():
         # generate a filename via the helper function and concat it with the extension to get the full file path
         generated_filename =  generate_file_name_for_storage()
         extension = file.filename.rsplit('.', 1)[-1].lower()
-        stored_file_name = generated_filename + extension
+        stored_file_name = generated_filename + "." + extension
         full_file_path = os.path.join(app.config['UPLOAD_FOLDER'], stored_file_name)
         # save the file
         file.save(full_file_path)
