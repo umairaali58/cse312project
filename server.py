@@ -23,7 +23,7 @@ users_collection = db['users']
 tokens_collection = db['tokens']
 recipeCollection = db["recipeCollection"]
 
-allowed_image_extensions = {'png', 'jpg', 'jpeg', 'gif'}
+allowed_image_extensions = {'png', 'jpg', 'jpeg'}
 
 
 
@@ -171,7 +171,7 @@ def post_recipe():
             recipe_find = recipeCollection.find_one({"recipe": recipe_name, "ingredients": ingredients, "username": "Guest"})
 
     else:
-        return jsonify({"recipe insertion error": "Please provide a properly formatted image: jpeg, jpg, gif, or png"}), 200
+        return jsonify({"recipe insertion error": "Please provide a properly formatted image: jpeg, jpg, or png"}), 200
 
 
     if not recipe_find:
