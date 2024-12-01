@@ -121,8 +121,8 @@ all_recipes = recipeCollection.find({})
 
 @app.route('/post_recipe', methods = ['POST'])
 def post_recipe():
-    recipe_request = request.form.get("recipe_name")
-    ingredient_request = request.form.get("ingredients")
+    recipe_name = request.form.get("recipe_name")
+    ingredients = request.form.get("ingredients")
 
     token =  request.cookies.get('auth_token', None)
     authTokenHash = ""
@@ -134,12 +134,12 @@ def post_recipe():
     # user = current_user.username if current_user.is_authenticated else None
     #If Username exists
     if username:
-        recipeCollection.insert_one({"recipe" : recipe_request, "ingredients": ingredient_request, "username": username, "likes": (0, [])})
-        recipe_find = recipeCollection.find_one({"recipe": recipe_request, "ingredients": ingredient_request, "username": username})
+        recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": username, "likes": (0, [])})
+        recipe_find = recipeCollection.find_one({"recipe": recipe_name, "ingredients": ingredients, "username": username})
     #If username doesnt exist
     else:
-        recipeCollection.insert_one({"recipe" : recipe_request, "ingredients": ingredient_request, "username": "Guest", "likes": (0, [])})
-        recipe_find = recipeCollection.find_one({"recipe": recipe_request, "ingredients": ingredient_request, "username": "Guest"})
+        recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": "Guest", "likes": (0, [])})
+        recipe_find = recipeCollection.find_one({"recipe": recipe_name, "ingredients": ingredients, "username": "Guest"})
 
 
     if not recipe_find:
