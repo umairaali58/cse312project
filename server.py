@@ -269,6 +269,20 @@ def home():
     # If no valid token is found, redirect to the login page
     return render_template('home.html', username=None)
 
+@app.route('/messages', methods=['GET'])
+def messages():
+    token = request.cookies.get('auth_token')
+    if token: 
+        hashed_token = hashlib.sha256(token.encode()).hexdigest()
+    # if current_user.is_authenticated:
+        # Retrieve the stored hashed token for the current user
+        user_token = tokens_collection.find_one({"token": hashed_token})
+        if user_token and user_token['token'] == hashlib.sha256(token.encode()).hexdigest():
+            return render_template('messages.html', username=user_token['username'])
+        
+    # If no valid token is found, redirect to the login page
+    return render_template('home.html', username=None)
+
 @app.route('/add_friend', methods=['POST'])
 @login_required
 def add_friend():
@@ -287,7 +301,7 @@ def add_friend():
 
     if user in current_user.friends:
         return jsonify({"error": "You are already friends"}), 400
-        
+
     users_collection.update_one(
         {"username": user},
         {"$addToSet": {"friend_requests": current_user.username}}
