@@ -30,10 +30,9 @@ app.config['upload_folder'] = upload_folder
 
 def allowed_file(file):
     """
-    Determines if an uploaded file is an allowed image format. It attempts to
-    open the file using the Pillow library to verify its validity as an image.
-    If the image cannot be opened or verified, it is rejected. Only files with
-    extensions matching predefined allowed image extensions are accepted.
+    Checks to make sure the file is free of security violations and good to upload.
+    Checks the file is an image using pillow, and checks the filename itself
+
 
     :param file: A file object that is being checked to see if it is a valid
                  and allowed image type.
@@ -43,10 +42,16 @@ def allowed_file(file):
     :rtype: bool
     """
     try:
+        # try to open the image with pillow and verify
         image = Image.open(file)
         image.verify()
     except (IOError, SyntaxError) as e:
+        # if cant be opened, return false
         return False
+    finally:
+        # reset file pointer to start
+        file.seek(0)
+    # Also checks the file extension just in case
     filename = file.filename
     if filename:
         extension = filename.rsplit('.', 1)[-1].lower()
@@ -123,6 +128,7 @@ all_recipes = recipeCollection.find({})
 def post_recipe():
     recipe_name = request.form.get("recipe_name")
     ingredients = request.form.get("ingredients")
+    file = request.files.get('recipe_image')
 
     token =  request.cookies.get('auth_token', None)
     authTokenHash = ""
@@ -130,16 +136,17 @@ def post_recipe():
         authTokenHash = hashlib.sha256(token.encode()).hexdigest()
 
     username = tokens_collection.find_one({"token": authTokenHash})["username"]
+    filename = secure_filename(file.filename)
+    if file and allowed_file(file.filename):
 
-    # user = current_user.username if current_user.is_authenticated else None
-    #If Username exists
-    if username:
-        recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": username, "likes": (0, [])})
-        recipe_find = recipeCollection.find_one({"recipe": recipe_name, "ingredients": ingredients, "username": username})
-    #If username doesnt exist
-    else:
-        recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": "Guest", "likes": (0, [])})
-        recipe_find = recipeCollection.find_one({"recipe": recipe_name, "ingredients": ingredients, "username": "Guest"})
+        #If Username exists
+        if username:
+            recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": username, "likes": (0, [])})
+            recipe_find = recipeCollection.find_one({"recipe": recipe_name, "ingredients": ingredients, "username": username})
+        #If username doesnt exist
+        else:
+            recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": "Guest", "likes": (0, [])})
+            recipe_find = recipeCollection.find_one({"recipe": recipe_name, "ingredients": ingredients, "username": "Guest"})
 
 
     if not recipe_find:
