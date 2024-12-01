@@ -61,6 +61,21 @@ def allowed_file(file):
 
 
 
+def generate_file_name_for_storage(directory):
+    """
+    Generates a unique file name for storage by counting existing files
+    in the specified directory and appending the count to the prefix
+    'media'. It helps in organizing and accessing files systematically.
+
+    :param directory: The path to the directory where files are stored.
+    :type directory: str
+    :return: A unique generated file name for storage.
+    :rtype: str
+    """
+    fileCount = len(os.listdir(upload_folder))
+    return "media" + str(fileCount + 1)
+
+
 @app.after_request
 def add_header(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -124,6 +139,8 @@ def like_post():
 
 all_recipes = recipeCollection.find({})
 
+
+
 @app.route('/post_recipe', methods = ['POST'])
 def post_recipe():
     recipe_name = request.form.get("recipe_name")
@@ -136,9 +153,8 @@ def post_recipe():
         authTokenHash = hashlib.sha256(token.encode()).hexdigest()
 
     username = tokens_collection.find_one({"token": authTokenHash})["username"]
-    filename = secure_filename(file.filename)
-    if file and allowed_file(file.filename):
-
+    if file and allowed_file(file):
+        filename = secure_filename(file.filename)
         #If Username exists
         if username:
             recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": username, "likes": (0, [])})
