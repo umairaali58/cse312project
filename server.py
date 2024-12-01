@@ -45,7 +45,7 @@ def allowed_file(file):
         # try to open the image with pillow and verify
         image = Image.open(file)
         image.verify()
-    except (IOError, SyntaxError) as e:
+    except Exception as e:
         # if cant be opened, return false
         return False
     finally:
@@ -61,14 +61,12 @@ def allowed_file(file):
 
 
 
-def generate_file_name_for_storage(directory):
+def generate_file_name_for_storage():
     """
     Generates a unique file name for storage by counting existing files
     in the specified directory and appending the count to the prefix
     'media'. It helps in organizing and accessing files systematically.
 
-    :param directory: The path to the directory where files are stored.
-    :type directory: str
     :return: A unique generated file name for storage.
     :rtype: str
     """
@@ -154,15 +152,25 @@ def post_recipe():
 
     username = tokens_collection.find_one({"token": authTokenHash})["username"]
     if file and allowed_file(file):
-        filename = secure_filename(file.filename)
-        #If Username exists
+
+        # generate a filename via the helper function and concat it with the extension to get the full file path
+        generated_filename =  generate_file_name_for_storage()
+        extension = file.filename.rsplit('.', 1)[-1].lower()
+        stored_file_name = generated_filename + extension
+        full_file_path = os.path.join(app.config['upload_folder'], stored_file_name)
+        # save the file
+        file.save(full_file_path)
+
         if username:
-            recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": username, "likes": (0, [])})
+            recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": username, "likes": (0, []), "image": full_file_path})
             recipe_find = recipeCollection.find_one({"recipe": recipe_name, "ingredients": ingredients, "username": username})
         #If username doesnt exist
         else:
-            recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": "Guest", "likes": (0, [])})
+            recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": "Guest", "likes": (0, []), "image": full_file_path})
             recipe_find = recipeCollection.find_one({"recipe": recipe_name, "ingredients": ingredients, "username": "Guest"})
+
+    else:
+        return jsonify({"recipe insertion error": "Please provide a properly formatted image: jpeg, jpg, gif, or png"}), 200
 
 
     if not recipe_find:
