@@ -7,6 +7,8 @@ services:
         condition: service_started
     ports:
       - "8080:8080"
+    volumes:
+      - ./static/uploads:/usr/src/app/static/uploads
   mongo:
     image: mongo:4.2.5
     ports:

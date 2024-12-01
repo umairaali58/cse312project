@@ -14,6 +14,8 @@ from PIL import Image
 
 app = Flask(__name__, template_folder='templates')
 app.config['SECRET_KEY'] = os.urandom(24)
+UPLOAD_FOLDER = 'static/uploads/'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 client = MongoClient('mongo')
 db = client['cse312project']
@@ -21,10 +23,9 @@ users_collection = db['users']
 tokens_collection = db['tokens']
 recipeCollection = db["recipeCollection"]
 
-# configs for image uploads
 allowed_image_extensions = {'png', 'jpg', 'jpeg', 'gif'}
-UPLOAD_FOLDER = 'static/uploads/'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+
 
 
 
