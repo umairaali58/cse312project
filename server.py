@@ -159,10 +159,12 @@ def post_recipe():
 
     token =  request.cookies.get('auth_token', None)
     authTokenHash = ""
+    username = ""
     if token:
         authTokenHash = hashlib.sha256(token.encode()).hexdigest()
+        username = tokens_collection.find_one({"token": authTokenHash})["username"]
 
-    username = tokens_collection.find_one({"token": authTokenHash})["username"]
+
     if file and allowed_file(file):
 
         # generate a filename via the helper function and concat it with the extension to get the full file path
