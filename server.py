@@ -159,7 +159,7 @@ def post_recipe():
 
     token =  request.cookies.get('auth_token', None)
     authTokenHash = ""
-    username = ""
+    username = None
     if token:
         authTokenHash = hashlib.sha256(token.encode()).hexdigest()
         username = tokens_collection.find_one({"token": authTokenHash})["username"]
