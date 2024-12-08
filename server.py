@@ -1,3 +1,5 @@
+import time
+
 from bson import ObjectId
 from flask import Flask, render_template, make_response, request, url_for, jsonify, redirect
 from flask_limiter.util import get_remote_address
@@ -9,6 +11,8 @@ import uuid
 import hashlib
 from pymongo import MongoClient
 from PIL import Image
+from functools import wraps
+
 
 
 
@@ -18,24 +22,65 @@ UPLOAD_FOLDER = 'static/uploads/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # initialize limiter
-limiter = Limiter(key_func=get_remote_address, app=app, default_limits=["50 per 10 seconds"])
+limiter = Limiter(app=app, key_func=get_remote_address, default_limits=["10 per 10 seconds"])
 
 client = MongoClient('mongo')
 db = client['cse312project']
 users_collection = db['users']
 tokens_collection = db['tokens']
 recipeCollection = db["recipeCollection"]
+penalty_collection = db['penalty']
 
 allowed_image_extensions = {'png', 'jpg', 'jpeg'}
 
+
+# Checks to see if the current ip is blocked for DOS reasons
+def is_ip_blocked(ip):
+    record = penalty_collection.find_one({"ip": ip})
+    # if there is a record, it compares the time
+    # if the current time is less than the exprire time, then they are still blocked
+    if record:
+        currentTime = time.time()
+        if currentTime < record['expiry']:
+            return True
+        # otherwise, it removes them from the database
+        else:
+            penalty_collection.delete_one({"ip": ip})
+    return False
+
+
+# creates a decorator that checks if the user's ip is blocked before allowing request to go through
+# use for
+def check_ip_block(func):
+    @wraps(func)
+    def decorated_function(*args, **kwargs):
+        ip = request.remote_addr
+        if is_ip_blocked(ip):
+            return jsonify(error="Too Many Requests", message="You have exceeded the allowed number of requests in a short duration. Please try again in 30 seconds."), 429
+        return func(*args, **kwargs)
+
+    return decorated_function
 
 
 
 @app.errorhandler(429)
 # creates a json response for users that exceed the rate
 def rate_limit_handler(e):
+    ip = get_remote_address()
+    if not is_ip_blocked(ip):
+        block_until = time.time() + 30  # add 30 seconds onto the current time
+        # update the database to add them to the block list
+        # use update one with upsert in case the ip is already in there for some reason
+
+        penalty_collection.update_one(
+            {"ip": ip},
+            {"$set": {"expiry": block_until}},
+            upsert=True)
+
     errorResponse = jsonify(error="Too Many Requests", message="You have exceeded the allowed number of requests in a short duration. Please try again in 30 seconds.")
-    return make_response(errorResponse, 429)
+    errorResponse.status_code = 429
+    errorResponse.headers["Retry-After"] = 30
+    return errorResponse
 
 
 
@@ -102,6 +147,7 @@ def add_header(response):
     return response
 
 @app.route('/')
+@check_ip_block
 def index():
     template = render_template('index.html')
     response = make_response(template)
@@ -111,6 +157,7 @@ def index():
 
 
 @app.route('/recipe')
+@check_ip_block
 def recipe():
     global all_recipes
     template = render_template('recipe.html', recipes = recipeCollection.find({}))
@@ -138,6 +185,7 @@ class User(UserMixin):
         return self.username
     
 @app.route("/like", methods = ['POST'])
+@check_ip_block
 def like_post():
     recipId = request.form.get('recipe_id')
     authToken = request.cookies.get('auth_token', None)
@@ -164,6 +212,7 @@ all_recipes = recipeCollection.find({})
 
 
 @app.route('/post_recipe', methods = ['POST'])
+@check_ip_block
 def post_recipe():
     recipe_name = request.form.get("recipe_name")
     ingredients = request.form.get("ingredients")
@@ -225,6 +274,7 @@ def load_user(username):
     return None
 
 @app.route('/register', methods=['POST'])
+@check_ip_block
 def register():
     data = request.form
     username = data.get('username')
@@ -246,6 +296,7 @@ def register():
     return make_response(redirect('/home'))
 
 @app.route('/login', methods=['POST'])
+@check_ip_block
 def login():
     data = request.form
     username = data.get('username')
@@ -270,6 +321,7 @@ def login():
 
 
 @app.route('/logout', methods=['POST'])
+@check_ip_block
 def logout():
     token = request.cookies.get('auth_token')
     if token:
@@ -283,6 +335,7 @@ def logout():
 
 
 @app.route('/home', methods=['GET'])
+@check_ip_block
 def home():
     token = request.cookies.get('auth_token')
     if token: 
@@ -297,6 +350,7 @@ def home():
     return render_template('home.html', username=None)
 
 @app.route('/messages', methods=['GET'])
+@check_ip_block
 def messages():
     token = request.cookies.get('auth_token')
     if token: 
@@ -311,6 +365,7 @@ def messages():
     return render_template('home.html', username=None)
 
 @app.route('/add_friend', methods=['POST'])
+@check_ip_block
 @login_required
 def add_friend():
     data = request.form
@@ -338,6 +393,7 @@ def add_friend():
 
 
 @app.route('/auth', methods=['GET'])
+@check_ip_block
 def auth():
     return render_template('auth.html')
 
