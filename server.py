@@ -195,7 +195,7 @@ class User(UserMixin):
 
 
 @app.route("/testing")
-def index():
+def testing():
     x_real_ip = request.headers.get('X-Real-IP')
     x_forwarded_for = request.headers.get('X-Forwarded-For')
     print(f"X-Real-IP: {x_real_ip}")
