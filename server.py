@@ -196,11 +196,17 @@ class User(UserMixin):
 
 @app.route("/testing")
 def testing():
-    x_real_ip = request.headers.get('X-Real-IP')
-    x_forwarded_for = request.headers.get('X-Forwarded-For')
-    print(f"X-Real-IP: {x_real_ip}")
-    print(f"X-Forwarded-For: {x_forwarded_for}")
-    return "Check logs for IP header information."
+    x_real_ip = request.headers.get('X-Real-IP', 'N/A')
+    x_forwarded_for = request.headers.get('X-Forwarded-For', 'N/A')
+
+    # Create a dictionary to return as JSON
+    headers_info = {
+        "X-Real-IP": x_real_ip,
+        "X-Forwarded-For": x_forwarded_for
+    }
+
+    # Return the dictionary as a JSON response
+    return jsonify(headers_info)
 
 @app.route("/like", methods = ['POST'])
 @limiter.limit("50 per 10 seconds")
