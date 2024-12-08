@@ -22,7 +22,7 @@ UPLOAD_FOLDER = 'static/uploads/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # initialize limiter
-limiter = Limiter(app=app, key_func=get_remote_address, default_limits=["10 per 10 seconds"])
+limiter = Limiter(app=app, key_func=get_remote_address, default_limits=["50 per 10 seconds"])
 
 client = MongoClient('mongo')
 db = client['cse312project']
@@ -141,10 +141,10 @@ def generate_file_name_for_storage():
     return "media" + str(fileCount + 1)
 
 
-@app.after_request
-def add_header(response):
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    return response
+# @app.after_request
+# def add_header(response):
+#     response.headers['X-Content-Type-Options'] = 'nosniff'
+#     return response
 
 @app.route('/')
 @check_ip_block
