@@ -29,8 +29,11 @@ recipeCollection = db["recipeCollection"]
 allowed_image_extensions = {'png', 'jpg', 'jpeg'}
 
 
-
-
+@app.errorhandler(429)
+# creates a json response for users that exceed the rate
+def rate_limit_handler(e):
+    errorResponse = jsonify(error="Too Many Requests", message="You have exceeded the allowed number of requests in a short duration. Please try again in 30 seconds.")
+    return make_response(errorResponse, 429)
 
 def allowed_file(file):
     """
@@ -95,7 +98,6 @@ def add_header(response):
     return response
 
 @app.route('/')
-@limiter.limit("50 per 10 seconds")
 def index():
     template = render_template('index.html')
     response = make_response(template)
