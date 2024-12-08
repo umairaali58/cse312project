@@ -7,6 +7,7 @@ import bcrypt
 import os
 import uuid
 import hashlib
+from datetime import datetime
 from pymongo import MongoClient
 from PIL import Image
 
@@ -196,7 +197,7 @@ def post_recipe():
     return make_response(redirect(url_for('recipe')))
     #return render_template('recipe.html', username=user, recipes=all_recipes)
 
-    
+
 # Setup Flask-Login
 
 # client = MongoClient('mongo')
@@ -247,7 +248,7 @@ def login():
         # Generate a plain token and store its hash in the database
         token = str(uuid.uuid4())
         token_hash = hashlib.sha256(token.encode()).hexdigest()
-        tokens_collection.replace_one({"username": username}, {"username": username, "token": token_hash}, upsert=True)
+        tokens_collection.replace_one({"username": username}, {"username": username, "token": token_hash, "session_start": datetime.now()}, upsert=True)
 
         # Set the plain token as a cookie
         response = make_response(redirect('home'))
@@ -268,6 +269,15 @@ def logout():
     response.delete_cookie('auth_token')
     return response
 
+@app.route('/userlist', methods=['GET'])
+def get_userlist():
+    all_data = tokens_collection.find({})
+    current_users = []
+
+    for user in all_data:
+        current_users.append({"username": user.get("username"), "elapsedtime": datetime.now() - user.get("session_start")})
+    
+    return jsonify(current_users)
 
 
 @app.route('/home', methods=['GET'])
