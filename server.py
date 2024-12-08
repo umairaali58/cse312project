@@ -16,13 +16,9 @@ app = Flask(__name__, template_folder='templates')
 app.config['SECRET_KEY'] = os.urandom(24)
 UPLOAD_FOLDER = 'static/uploads/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-def get_client_ip():
-    if request.headers.get('X-Forwarded-For'):
-        # The X-Forwarded-For may contain multiple IP addresses, we take the first one
-        return request.headers.get('X-Forwarded-For').split(',')[0].strip()
-    return request.remote_addr
+
 # initialize limiter
-limiter = Limiter(key_func=get_client_ip, app=app, default_limits=["50 per 10 seconds"])
+limiter = Limiter(key_func=get_remote_address, app=app, default_limits=["50 per 10 seconds"])
 
 client = MongoClient('mongo')
 db = client['cse312project']
