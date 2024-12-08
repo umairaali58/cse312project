@@ -22,7 +22,7 @@ UPLOAD_FOLDER = 'static/uploads/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # initialize limiter
-limiter = Limiter(app=app, key_func=get_remote_address, default_limits=["50 per 10 seconds"])
+limiter = Limiter(app=app, key_func=get_remote_address)
 
 client = MongoClient('mongo')
 db = client['cse312project']
@@ -147,6 +147,7 @@ def generate_file_name_for_storage():
 #     return response
 
 @app.route('/')
+@limiter.limit("10 per 10 seconds")
 @check_ip_block
 def index():
     template = render_template('index.html')
@@ -157,6 +158,7 @@ def index():
 
 
 @app.route('/recipe')
+@limiter.limit("10 per 10 seconds")
 @check_ip_block
 def recipe():
     global all_recipes
@@ -185,6 +187,7 @@ class User(UserMixin):
         return self.username
     
 @app.route("/like", methods = ['POST'])
+@limiter.limit("50 per 10 seconds")
 @check_ip_block
 def like_post():
     recipId = request.form.get('recipe_id')
@@ -212,6 +215,7 @@ all_recipes = recipeCollection.find({})
 
 
 @app.route('/post_recipe', methods = ['POST'])
+@limiter.limit("50 per 10 seconds")
 @check_ip_block
 def post_recipe():
     recipe_name = request.form.get("recipe_name")
@@ -274,6 +278,7 @@ def load_user(username):
     return None
 
 @app.route('/register', methods=['POST'])
+@limiter.limit("12 per 10 seconds")
 @check_ip_block
 def register():
     data = request.form
@@ -296,6 +301,7 @@ def register():
     return make_response(redirect('/home'))
 
 @app.route('/login', methods=['POST'])
+@limiter.limit("12 per 10 seconds")
 @check_ip_block
 def login():
     data = request.form
@@ -321,6 +327,7 @@ def login():
 
 
 @app.route('/logout', methods=['POST'])
+@limiter.limit("12 per 10 seconds")
 @check_ip_block
 def logout():
     token = request.cookies.get('auth_token')
@@ -335,6 +342,7 @@ def logout():
 
 
 @app.route('/home', methods=['GET'])
+@limiter.limit("16 per 10 seconds")
 @check_ip_block
 def home():
     token = request.cookies.get('auth_token')
@@ -350,6 +358,7 @@ def home():
     return render_template('home.html', username=None)
 
 @app.route('/messages', methods=['GET'])
+@limiter.limit("16 per 10 seconds")
 @check_ip_block
 def messages():
     token = request.cookies.get('auth_token')
