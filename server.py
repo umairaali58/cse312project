@@ -191,7 +191,17 @@ class User(UserMixin):
 
     def get_id(self):
         return self.username
-    
+
+
+
+@app.route("/testing")
+def index():
+    x_real_ip = request.headers.get('X-Real-IP')
+    x_forwarded_for = request.headers.get('X-Forwarded-For')
+    print(f"X-Real-IP: {x_real_ip}")
+    print(f"X-Forwarded-For: {x_forwarded_for}")
+    return "Check logs for IP header information."
+
 @app.route("/like", methods = ['POST'])
 @limiter.limit("50 per 10 seconds")
 @check_ip_block
