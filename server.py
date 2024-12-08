@@ -275,7 +275,8 @@ def get_userlist():
     current_users = []
 
     for user in all_data:
-        current_users.append({"username": user.get("username"), "elapsedtime": datetime.now() - user.get("session_start")})
+        if user.get("username") and user.get("session_start"):
+            current_users.append({"username": user.get("username"), "elapsedtime": (datetime.now() - user.get("session_start")).total_seconds()})
     
     return jsonify(current_users)
 
