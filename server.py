@@ -21,8 +21,14 @@ app.config['SECRET_KEY'] = os.urandom(24)
 UPLOAD_FOLDER = 'static/uploads/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+
+def get_client_ip():
+    # Extract the first (original) IP in the X-Forwarded-For header
+    forwarded_for = request.headers.get('X-Forwarded-For', request.remote_addr)
+    return forwarded_for.split(',')[0].strip()
+
 # initialize limiter
-limiter = Limiter(app=app, key_func=get_remote_address)
+limiter = Limiter(app=app, key_func=get_client_ip)
 
 client = MongoClient('mongo')
 db = client['cse312project']
