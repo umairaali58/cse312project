@@ -1,8 +1,8 @@
 from bson import ObjectId
 from flask import Flask, render_template, make_response, request, url_for, jsonify, redirect
+from flask_limiter.util import get_remote_address
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
-from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
+from flask_limiter import Limiter
 import bcrypt
 import os
 import uuid
@@ -16,6 +16,9 @@ app = Flask(__name__, template_folder='templates')
 app.config['SECRET_KEY'] = os.urandom(24)
 UPLOAD_FOLDER = 'static/uploads/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# initialize limiter
+limiter = Limiter(key_func=get_remote_address, app=app, default_limits=["50 per 10 seconds"])
 
 client = MongoClient('mongo')
 db = client['cse312project']
@@ -92,11 +95,14 @@ def add_header(response):
     return response
 
 @app.route('/')
+@limiter.limit("50 per 10 seconds")
 def index():
     template = render_template('index.html')
     response = make_response(template)
 
     return response
+
+
 
 @app.route('/recipe')
 def recipe():
