@@ -60,7 +60,7 @@ def is_ip_blocked(ip):
 def check_ip_block(func):
     @wraps(func)
     def decorated_function(*args, **kwargs):
-        ip = request.remote_addr
+        ip = get_client_ip()
         if is_ip_blocked(ip):
             return jsonify(error="Too Many Requests", message="You have exceeded the allowed number of requests in a short duration. Please try again in 30 seconds."), 429
         return func(*args, **kwargs)
@@ -72,7 +72,7 @@ def check_ip_block(func):
 @app.errorhandler(429)
 # creates a json response for users that exceed the rate
 def rate_limit_handler(e):
-    ip = get_remote_address()
+    ip = get_client_ip()
     if not is_ip_blocked(ip):
         block_until = time.time() + 30  # add 30 seconds onto the current time
         # update the database to add them to the block list
@@ -194,19 +194,19 @@ class User(UserMixin):
 
 
 
-@app.route("/testing")
-def testing():
-    x_real_ip = request.headers.get('X-Real-IP', 'N/A')
-    x_forwarded_for = request.headers.get('X-Forwarded-For', 'N/A')
-
-    # Create a dictionary to return as JSON
-    headers_info = {
-        "X-Real-IP": x_real_ip,
-        "X-Forwarded-For": x_forwarded_for
-    }
-
-    # Return the dictionary as a JSON response
-    return jsonify(headers_info)
+# @app.route("/testing")
+# def testing():
+#     x_real_ip = request.headers.get('X-Real-IP', 'N/A')
+#     x_forwarded_for = request.headers.get('X-Forwarded-For', 'N/A')
+#
+#     # Create a dictionary to return as JSON
+#     headers_info = {
+#         "X-Real-IP": x_real_ip,
+#         "X-Forwarded-For": x_forwarded_for
+#     }
+#
+#     # Return the dictionary as a JSON response
+#     return jsonify(headers_info)
 
 @app.route("/like", methods = ['POST'])
 @limiter.limit("50 per 10 seconds")
