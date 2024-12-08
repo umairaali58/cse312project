@@ -22,8 +22,8 @@ UPLOAD_FOLDER = 'static/uploads/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 
+# extracts the ip from the headers that were forwarded by nginx
 def get_client_ip():
-    # Extract the first (original) IP in the X-Forwarded-For header
     forwarded_for = request.headers.get('X-Forwarded-For', request.remote_addr)
     return forwarded_for.split(',')[0].strip()
 
