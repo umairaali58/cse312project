@@ -2,7 +2,6 @@ import time
 
 from bson import ObjectId
 from flask import Flask, render_template, make_response, request, url_for, jsonify, redirect
-from flask_limiter.util import get_remote_address
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
 from flask_limiter import Limiter
 import bcrypt
