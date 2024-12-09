@@ -1,8 +1,7 @@
 import time
 
 from bson import ObjectId
-from flask import Flask, render_template, make_response, request, url_for, jsonify, redirect, send_file
-from flask_limiter.util import get_remote_address
+from flask import Flask, render_template, make_response, request, url_for, jsonify, redirect
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
 from flask_limiter import Limiter
 import bcrypt
@@ -263,7 +262,7 @@ def download_recipe():
     pdf = canvas.Canvas(pdf_buffer, pagesize=letter)
     pdf.drawString(100, 750, f"Recipe: {recipe['recipe']}")
     pdf.drawString(100, 730, "Ingredients:")
-    
+
     y_position = 710
 
     for ingredient in recipe['ingredients'].split(","):
@@ -283,17 +282,17 @@ def download_recipe():
 
         pdf.drawImage(image_path, 100, y_position, width=320, height=320)
         y_position -= 20
-    
+
         pdf.drawString(100, y_position, f"Recipe Made using recipehub.me")
 
     except Exception as e:
         error_message = f"Image not available. {e}"
-        wrapped_message = textwrap.wrap(error_message, width=70) 
+        wrapped_message = textwrap.wrap(error_message, width=70)
 
         for line in wrapped_message:
             pdf.drawString(100, y_position, line)
-            y_position -= 20 
-           
+            y_position -= 20
+
         print(f"Error fetching image: {e}")
 
     pdf.save()
@@ -435,7 +434,7 @@ def get_userlist():
     for user in all_data:
         if user.get("username") and user.get("session_start"):
             current_users.append({"username": user.get("username"), "elapsedtime": round((datetime.now() - user.get("session_start")).total_seconds(),2)})
-    
+
     return jsonify(current_users), 200
 
 
