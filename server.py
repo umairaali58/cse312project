@@ -1,8 +1,10 @@
+import time
+
 from bson import ObjectId
 from flask import Flask, render_template, make_response, request, url_for, jsonify, redirect, send_file
+from flask_limiter.util import get_remote_address
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
-from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
+from flask_limiter import Limiter
 import bcrypt
 import os
 import uuid
@@ -15,6 +17,8 @@ from io import BytesIO
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from PIL import Image
+from functools import wraps
+
 import requests
 import os
 import textwrap
@@ -24,30 +28,74 @@ app.config['SECRET_KEY'] = os.urandom(24)
 UPLOAD_FOLDER = 'static/uploads/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+
+# extracts the ip from the headers that were forwarded by nginx
+def get_client_ip():
+    forwarded_for = request.headers.get('X-Forwarded-For', request.remote_addr)
+    return forwarded_for.split(',')[0].strip()
+
+# initialize limiter
+limiter = Limiter(app=app, key_func=get_client_ip)
+
 client = MongoClient('mongo')
 db = client['cse312project']
 users_collection = db['users']
 tokens_collection = db['tokens']
 recipeCollection = db["recipeCollection"]
+penalty_collection = db['penalty']
 
 allowed_image_extensions = {'png', 'jpg', 'jpeg'}
 
 
+# Checks to see if the current ip is blocked for DOS reasons
+def is_ip_blocked(ip):
+    record = penalty_collection.find_one({"ip": ip})
+    # if there is a record, it compares the time
+    # if the current time is less than the exprire time, then they are still blocked
+    if record:
+        currentTime = time.time()
+        if currentTime < record['expiry']:
+            return True
+        # otherwise, it removes them from the database
+        else:
+            penalty_collection.delete_one({"ip": ip})
+    return False
 
-# # Initialize the LoginManager
-# login_manager = LoginManager()
-# login_manager.init_app(app)  # Associate it with your Flask app
 
-# # Configure LoginManager
-# login_manager.login_view = 'login'  # Redirect to this view if not logged in
-# login_manager.login_message = "Please log in to access this page."
-# login_manager.login_message_category = "info"
+# creates a decorator that checks if the user's ip is blocked before allowing request to go through
+# use for
+def check_ip_block(func):
+    @wraps(func)
+    def decorated_function(*args, **kwargs):
+        ip = get_client_ip()
+        if is_ip_blocked(ip):
+            return jsonify(error="Too Many Requests", message="You have exceeded the allowed number of requests in a short duration. Please try again in 30 seconds."), 429
+        return func(*args, **kwargs)
 
-# # Define the user loader callback
-# @login_manager.user_loader
-# def load_user(user_id):
-#     # Replace this with the logic to load a user from your database
-#     return User.query.get(user_id)  # Assuming SQLAlchemy
+    return decorated_function
+
+
+
+@app.errorhandler(429)
+# creates a json response for users that exceed the rate
+def rate_limit_handler(e):
+    ip = get_client_ip()
+    if not is_ip_blocked(ip):
+        block_until = time.time() + 30  # add 30 seconds onto the current time
+        # update the database to add them to the block list
+        # use update one with upsert in case the ip is already in there for some reason
+
+        penalty_collection.update_one(
+            {"ip": ip},
+            {"$set": {"expiry": block_until}},
+            upsert=True)
+
+    errorResponse = jsonify(error="Too Many Requests", message="You have exceeded the allowed number of requests in a short duration. Please try again in 30 seconds.")
+    errorResponse.status_code = 429
+    errorResponse.headers["Retry-After"] = 30
+    return errorResponse
+
+
 
 def allowed_file(file):
     """
@@ -106,19 +154,25 @@ def generate_file_name_for_storage():
     return "media" + str(fileCount + 1)
 
 
-@app.after_request
-def add_header(response):
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    return response
+# @app.after_request
+# def add_header(response):
+#     response.headers['X-Content-Type-Options'] = 'nosniff'
+#     return response
 
 @app.route('/')
+@limiter.limit("10 per 10 seconds")
+@check_ip_block
 def index():
     template = render_template('index.html')
     response = make_response(template)
 
     return response
 
+
+
 @app.route('/recipe')
+@limiter.limit("10 per 10 seconds")
+@check_ip_block
 def recipe():
     global all_recipes
     template = render_template('recipe.html', recipes = recipeCollection.find({}))
@@ -144,8 +198,26 @@ class User(UserMixin):
 
     def get_id(self):
         return self.username
-    
+
+
+
+# @app.route("/testing")
+# def testing():
+#     x_real_ip = request.headers.get('X-Real-IP', 'N/A')
+#     x_forwarded_for = request.headers.get('X-Forwarded-For', 'N/A')
+#
+#     # Create a dictionary to return as JSON
+#     headers_info = {
+#         "X-Real-IP": x_real_ip,
+#         "X-Forwarded-For": x_forwarded_for
+#     }
+#
+#     # Return the dictionary as a JSON response
+#     return jsonify(headers_info)
+
 @app.route("/like", methods = ['POST'])
+@limiter.limit("50 per 10 seconds")
+@check_ip_block
 def like_post():
     recipId = request.form.get('recipe_id')
     authToken = request.cookies.get('auth_token', None)
@@ -227,6 +299,8 @@ def download_recipe():
 
 
 @app.route('/post_recipe', methods = ['POST'])
+@limiter.limit("50 per 10 seconds")
+@check_ip_block
 def post_recipe():
     recipe_name = request.form.get("recipe_name")
     ingredients = request.form.get("ingredients")
@@ -289,6 +363,8 @@ def load_user(username):
     return None
 
 @app.route('/register', methods=['POST'])
+@limiter.limit("12 per 10 seconds")
+@check_ip_block
 def register():
     data = request.form
     username = data.get('username')
@@ -310,6 +386,8 @@ def register():
     return make_response(redirect('/home'))
 
 @app.route('/login', methods=['POST'])
+@limiter.limit("12 per 10 seconds")
+@check_ip_block
 def login():
     data = request.form
     username = data.get('username')
@@ -334,6 +412,8 @@ def login():
 
 
 @app.route('/logout', methods=['POST'])
+@limiter.limit("12 per 10 seconds")
+@check_ip_block
 def logout():
     token = request.cookies.get('auth_token')
     if token:
@@ -347,6 +427,8 @@ def logout():
 
 
 @app.route('/home', methods=['GET'])
+@limiter.limit("16 per 10 seconds")
+@check_ip_block
 def home():
     token = request.cookies.get('auth_token')
     if token: 
@@ -361,6 +443,8 @@ def home():
     return render_template('home.html', username=None)
 
 @app.route('/messages', methods=['GET'])
+@limiter.limit("16 per 10 seconds")
+@check_ip_block
 def messages():
     token = request.cookies.get('auth_token')
     if token: 
@@ -375,6 +459,7 @@ def messages():
     return render_template('home.html', username=None)
 
 @app.route('/add_friend', methods=['POST'])
+@check_ip_block
 @login_required
 def add_friend():
     data = request.form
@@ -402,6 +487,7 @@ def add_friend():
 
 
 @app.route('/auth', methods=['GET'])
+@check_ip_block
 def auth():
     return render_template('auth.html')
 
