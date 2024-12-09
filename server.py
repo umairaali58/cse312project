@@ -3,14 +3,20 @@ import time
 from bson import ObjectId
 from flask import Flask, render_template, make_response, request, url_for, jsonify, redirect
 from flask_socketio import SocketIO, emit, join_room, leave_room
-from flask_limiter.util import get_remote_address
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
-from flask_limiter import Limiter
+from flask_limiter import Limiter, get_remote_address
 import bcrypt
 import os
 import uuid
 import hashlib
+from datetime import datetime
 from pymongo import MongoClient
+import random
+from flask import Flask, request, jsonify, send_file
+from bson.objectid import ObjectId
+from io import BytesIO
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 from PIL import Image
 from functools import wraps
 import time
@@ -18,8 +24,9 @@ from threading import Lock
 from datetime import datetime
 
 
-
-
+import requests
+import os
+import textwrap
 
 app = Flask(__name__, template_folder='templates')
 socketio = SocketIO(app)
@@ -27,8 +34,14 @@ app.config['SECRET_KEY'] = os.urandom(24)
 UPLOAD_FOLDER = 'static/uploads/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+
+# extracts the ip from the headers that were forwarded by nginx
+def get_client_ip():
+    forwarded_for = request.headers.get('X-Forwarded-For', request.remote_addr)
+    return forwarded_for.split(',')[0].strip()
+
 # initialize limiter
-limiter = Limiter(app=app, key_func=get_remote_address)
+limiter = Limiter(app=app, key_func=get_client_ip)
 
 client = MongoClient('mongo')
 db = client['cse312project']
@@ -432,7 +445,7 @@ def is_ip_blocked(ip):
 def check_ip_block(func):
     @wraps(func)
     def decorated_function(*args, **kwargs):
-        ip = request.remote_addr
+        ip = get_client_ip()
         if is_ip_blocked(ip):
             return jsonify(error="Too Many Requests", message="You have exceeded the allowed number of requests in a short duration. Please try again in 30 seconds."), 429
         return func(*args, **kwargs)
@@ -444,7 +457,7 @@ def check_ip_block(func):
 @app.errorhandler(429)
 # creates a json response for users that exceed the rate
 def rate_limit_handler(e):
-    ip = get_remote_address()
+    ip = get_client_ip()
     if not is_ip_blocked(ip):
         block_until = time.time() + 30  # add 30 seconds onto the current time
         # update the database to add them to the block list
@@ -519,10 +532,10 @@ def generate_file_name_for_storage():
     return "media" + str(fileCount + 1)
 
 
-# @app.after_request
-# def add_header(response):
-#     response.headers['X-Content-Type-Options'] = 'nosniff'
-#     return response
+@app.after_request
+def add_header(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 @app.route('/')
 @limiter.limit("10 per 10 seconds")
@@ -563,7 +576,23 @@ class User(UserMixin):
 
     def get_id(self):
         return self.username
-    
+
+
+
+# @app.route("/testing")
+# def testing():
+#     x_real_ip = request.headers.get('X-Real-IP', 'N/A')
+#     x_forwarded_for = request.headers.get('X-Forwarded-For', 'N/A')
+#
+#     # Create a dictionary to return as JSON
+#     headers_info = {
+#         "X-Real-IP": x_real_ip,
+#         "X-Forwarded-For": x_forwarded_for
+#     }
+#
+#     # Return the dictionary as a JSON response
+#     return jsonify(headers_info)
+
 @app.route("/like", methods = ['POST'])
 @limiter.limit("50 per 10 seconds")
 @check_ip_block
@@ -590,6 +619,63 @@ def like_post():
 
 all_recipes = recipeCollection.find({})
 
+
+
+
+# Dummy recipe collection for demonstration
+
+@app.route('/download', methods=['POST'])
+@limiter.limit("16 per 10 seconds")
+@check_ip_block
+def download_recipe():
+    recipe_id = request.form.get('recipe_id')
+    recipe = recipeCollection.find_one({"_id": ObjectId(recipe_id)})
+
+    if not recipe:
+        return jsonify({"error": "Recipe not found"}), 404
+
+    pdf_buffer = BytesIO()
+
+    # Generate PDF
+    pdf = canvas.Canvas(pdf_buffer, pagesize=letter)
+    pdf.drawString(100, 750, f"Recipe: {recipe['recipe']}")
+    pdf.drawString(100, 730, "Ingredients:")
+
+    y_position = 710
+
+    for ingredient in recipe['ingredients'].split(","):
+        pdf.drawString(120, y_position, f"- {ingredient}")
+        y_position -= 20
+
+    y_position -= 20
+
+    pdf.drawString(100, y_position, "Recipe By: " + recipe['username'])
+
+    y_position -= 20
+
+    try:
+        image_path = recipe['image']
+
+        y_position -= 320
+
+        pdf.drawImage(image_path, 100, y_position, width=320, height=320)
+        y_position -= 20
+
+        pdf.drawString(100, y_position, f"Recipe Made using recipehub.me")
+
+    except Exception as e:
+        error_message = f"Image not available. {e}"
+        wrapped_message = textwrap.wrap(error_message, width=70)
+
+        for line in wrapped_message:
+            pdf.drawString(100, y_position, line)
+            y_position -= 20
+
+        print(f"Error fetching image: {e}")
+
+    pdf.save()
+    pdf_buffer.seek(0)
+    return send_file(pdf_buffer, as_attachment=True, download_name=f"{recipe['recipe']}.pdf", mimetype='application/pdf')
 
 
 @app.route('/post_recipe', methods = ['POST'])
@@ -619,13 +705,14 @@ def post_recipe():
         file.save(full_file_path)
         # change the dimensions of the image for better display
         resize_image_to_320x320(full_file_path)
+        recipe_id = random.randint(0, 1000000)
 
         if username:
-            recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": username, "likes": (0, []), "image": full_file_path})
+            recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": username, "likes": (0, []), "image": full_file_path, "id": recipe_id})
             recipe_find = recipeCollection.find_one({"recipe": recipe_name, "ingredients": ingredients, "username": username})
         #If username doesnt exist
         else:
-            recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": "Guest", "likes": (0, []), "image": full_file_path})
+            recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": "Guest", "likes": (0, []), "image": full_file_path, "id": recipe_id})
             recipe_find = recipeCollection.find_one({"recipe": recipe_name, "ingredients": ingredients, "username": "Guest"})
 
     else:
@@ -639,7 +726,7 @@ def post_recipe():
     return make_response(redirect(url_for('recipe')))
     #return render_template('recipe.html', username=user, recipes=all_recipes)
 
-    
+
 # Setup Flask-Login
 
 # client = MongoClient('mongo')
@@ -694,7 +781,7 @@ def login():
         # Generate a plain token and store its hash in the database
         token = str(uuid.uuid4())
         token_hash = hashlib.sha256(token.encode()).hexdigest()
-        tokens_collection.replace_one({"username": username}, {"username": username, "token": token_hash}, upsert=True)
+        tokens_collection.replace_one({"username": username}, {"username": username, "token": token_hash, "session_start": datetime.now()}, upsert=True)
 
         # Set the plain token as a cookie
         response = make_response(redirect('home'))
@@ -717,6 +804,18 @@ def logout():
     response.delete_cookie('auth_token')
     return response
 
+@app.route('/userlist', methods=['GET'])
+def get_userlist():
+    all_data = tokens_collection.find({})
+    current_users = []
+
+    for user in all_data:
+        if user.get("username") and user.get("session_start"):
+            current_users.append({"username": user.get("username"), "elapsedtime": round((datetime.now() - user.get("session_start")).total_seconds(),2)})
+    
+    top_users = sorted(current_users, key=lambda x: x["elapsedtime"], reverse=True)[:5]
+
+    return jsonify(top_users), 200
 
 
 @app.route('/home', methods=['GET'])
