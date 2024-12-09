@@ -247,6 +247,8 @@ all_recipes = recipeCollection.find({})
 # Dummy recipe collection for demonstration
 
 @app.route('/download', methods=['POST'])
+@limiter.limit("16 per 10 seconds")
+@check_ip_block
 def download_recipe():
     recipe_id = request.form.get('recipe_id')
     recipe = recipeCollection.find_one({"_id": ObjectId(recipe_id)})
