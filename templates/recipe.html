@@ -29,12 +29,17 @@
                     <p>Recipe Name : {{ recipe['recipe'] }}</p>
                     {#  Slice off the 'static/' prefix and display the image                  #}
                     <img src="{{ url_for('static', filename=recipe['image'][7:]) }}" alt="{{ recipe['recipe'] }}" class="recipe-image">
-                    <p>Ingredients :  {{ recipe['ingredients'] }}</p>
+                    <p>Ingredients -- Comma Separated :  {{ recipe['ingredients'] }}</p>
                     <p>Posted by : {{ recipe['username'] }}</p>
                     <p>Likes : {{ recipe['likes'][0] }}</p>
+                    
                     <form action="/like" method="post" style="display:inline;">
                         <input type="hidden" name="recipe_id" value="{{ recipe['_id'] }}">
                         <button type="submit" class="like-button">Like</button>
+                    </form>
+                    <form action="/download" method="post" style="display:inline;">
+                        <input type="hidden" name="recipe_id" value="{{ recipe['_id'] }}">
+                        <button type="submit" class="download-button">Download</button>
                     </form>
                 </div>
                     <hr>

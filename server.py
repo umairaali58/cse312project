@@ -1,5 +1,5 @@
 from bson import ObjectId
-from flask import Flask, render_template, make_response, request, url_for, jsonify, redirect
+from flask import Flask, render_template, make_response, request, url_for, jsonify, redirect, send_file
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -8,9 +8,16 @@ import os
 import uuid
 import hashlib
 from pymongo import MongoClient
+import random
+# from flask import Flask, request, jsonify, send_file
+from bson.objectid import ObjectId
+from io import BytesIO
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 from PIL import Image
-
-
+import requests
+import os
+import textwrap
 
 app = Flask(__name__, template_folder='templates')
 app.config['SECRET_KEY'] = os.urandom(24)
@@ -27,7 +34,20 @@ allowed_image_extensions = {'png', 'jpg', 'jpeg'}
 
 
 
+# # Initialize the LoginManager
+# login_manager = LoginManager()
+# login_manager.init_app(app)  # Associate it with your Flask app
 
+# # Configure LoginManager
+# login_manager.login_view = 'login'  # Redirect to this view if not logged in
+# login_manager.login_message = "Please log in to access this page."
+# login_manager.login_message_category = "info"
+
+# # Define the user loader callback
+# @login_manager.user_loader
+# def load_user(user_id):
+#     # Replace this with the logic to load a user from your database
+#     return User.query.get(user_id)  # Assuming SQLAlchemy
 
 def allowed_file(file):
     """
@@ -151,6 +171,61 @@ all_recipes = recipeCollection.find({})
 
 
 
+
+# Dummy recipe collection for demonstration
+
+@app.route('/download', methods=['POST'])
+def download_recipe():
+    recipe_id = request.form.get('recipe_id')
+    recipe = recipeCollection.find_one({"_id": ObjectId(recipe_id)})
+
+    if not recipe:
+        return jsonify({"error": "Recipe not found"}), 404
+
+    pdf_buffer = BytesIO()
+
+    # Generate PDF
+    pdf = canvas.Canvas(pdf_buffer, pagesize=letter)
+    pdf.drawString(100, 750, f"Recipe: {recipe['recipe']}")
+    pdf.drawString(100, 730, "Ingredients:")
+    
+    y_position = 710
+
+    for ingredient in recipe['ingredients'].split(","):
+        pdf.drawString(120, y_position, f"- {ingredient}")
+        y_position -= 20
+
+    y_position -= 20
+
+    pdf.drawString(100, y_position, "Recipe By: " + recipe['username'])
+
+    y_position -= 20
+
+    try:
+        image_path = recipe['image']
+
+        y_position -= 320
+
+        pdf.drawImage(image_path, 100, y_position, width=320, height=320)
+        y_position -= 20
+    
+        pdf.drawString(100, y_position, f"Recipe Made using recipehub.me")
+
+    except Exception as e:
+        error_message = f"Image not available. {e}"
+        wrapped_message = textwrap.wrap(error_message, width=70) 
+
+        for line in wrapped_message:
+            pdf.drawString(100, y_position, line)
+            y_position -= 20 
+           
+        print(f"Error fetching image: {e}")
+
+    pdf.save()
+    pdf_buffer.seek(0)
+    return send_file(pdf_buffer, as_attachment=True, download_name=f"{recipe['recipe']}.pdf", mimetype='application/pdf')
+
+
 @app.route('/post_recipe', methods = ['POST'])
 def post_recipe():
     recipe_name = request.form.get("recipe_name")
@@ -176,13 +251,14 @@ def post_recipe():
         file.save(full_file_path)
         # change the dimensions of the image for better display
         resize_image_to_320x320(full_file_path)
+        recipe_id = random.randint(0, 1000000)
 
         if username:
-            recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": username, "likes": (0, []), "image": full_file_path})
+            recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": username, "likes": (0, []), "image": full_file_path, "id": recipe_id})
             recipe_find = recipeCollection.find_one({"recipe": recipe_name, "ingredients": ingredients, "username": username})
         #If username doesnt exist
         else:
-            recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": "Guest", "likes": (0, []), "image": full_file_path})
+            recipeCollection.insert_one({"recipe" : recipe_name, "ingredients": ingredients, "username": "Guest", "likes": (0, []), "image": full_file_path, "id": recipe_id})
             recipe_find = recipeCollection.find_one({"recipe": recipe_name, "ingredients": ingredients, "username": "Guest"})
 
     else:
