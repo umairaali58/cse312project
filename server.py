@@ -278,7 +278,9 @@ def get_userlist():
         if user.get("username") and user.get("session_start"):
             current_users.append({"username": user.get("username"), "elapsedtime": round((datetime.now() - user.get("session_start")).total_seconds(),2)})
     
-    return jsonify(current_users), 200
+    top_users = sorted(current_users, key=lambda x: x["elapsedtime"], reverse=True)[:5]
+
+    return jsonify(top_users), 200
 
 
 @app.route('/home', methods=['GET'])
