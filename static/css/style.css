@@ -49,3 +49,19 @@ p {
     font-size: 1.1rem;
     line-height: 1.6;
 }
+ 
+h2{
+    margin-bottom: 20px;
+    text-align: center;
+}
+table{
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 16px;
+    text-align: center;
+}
+
+td {
+    padding: 12px 15px;
+}

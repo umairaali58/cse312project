@@ -276,9 +276,9 @@ def get_userlist():
 
     for user in all_data:
         if user.get("username") and user.get("session_start"):
-            current_users.append({"username": user.get("username"), "elapsedtime": (datetime.now() - user.get("session_start")).total_seconds()})
+            current_users.append({"username": user.get("username"), "elapsedtime": round((datetime.now() - user.get("session_start")).total_seconds(),2)})
     
-    return jsonify(current_users)
+    return jsonify(current_users), 200
 
 
 @app.route('/home', methods=['GET'])
