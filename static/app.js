@@ -29,6 +29,5 @@ function updateUserList(userList) {
 }
 
 window.onload = function() {
-    alert("Welcome to our recipe app");
     setInterval(getUserList, 1000);  
 };
