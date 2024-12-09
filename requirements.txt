@@ -13,3 +13,5 @@ jsonify == 0.5
 pymongo==3.12.1
 bcrypt==3.2.0
 pillow
+Flask-SocketIO
+requests

@@ -2,6 +2,7 @@ import time
 
 from bson import ObjectId
 from flask import Flask, render_template, make_response, request, url_for, jsonify, redirect
+from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_limiter.util import get_remote_address
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
 from flask_limiter import Limiter
@@ -12,11 +13,16 @@ import hashlib
 from pymongo import MongoClient
 from PIL import Image
 from functools import wraps
+import time
+from threading import Lock
+from datetime import datetime
+
 
 
 
 
 app = Flask(__name__, template_folder='templates')
+socketio = SocketIO(app)
 app.config['SECRET_KEY'] = os.urandom(24)
 UPLOAD_FOLDER = 'static/uploads/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -30,8 +36,380 @@ users_collection = db['users']
 tokens_collection = db['tokens']
 recipeCollection = db["recipeCollection"]
 penalty_collection = db['penalty']
+competition_collection = db['competitions']
 
 allowed_image_extensions = {'png', 'jpg', 'jpeg'}
+
+competition_locks = {}
+active_competitions = {}
+
+
+@app.route('/turn')
+@limiter.limit("10 per 10 seconds")
+def turn_page():
+    token = request.cookies.get('auth_token')
+    if token:
+        hashed_token = hashlib.sha256(token.encode()).hexdigest()
+        user_token = tokens_collection.find_one({"token": hashed_token})
+        if user_token:
+            username = user_token['username']
+            # Get all users except current user
+            all_users = list(users_collection.find(
+                {"username": {"$ne": username}}, 
+                {"username": 1, "_id": 0}
+            ))
+            
+            # Get all recipes and convert ObjectId to string
+            recipes = list(recipeCollection.find())
+            for recipe in recipes:
+                recipe['_id'] = str(recipe['_id'])  # Convert ObjectId to string
+            
+            # Get user's competitions and convert ObjectId to string
+            competitions = list(competition_collection.find({
+                '$or': [
+                    {'player1': username},
+                    {'player2': username}
+                ]
+            }))
+            for comp in competitions:
+                comp['_id'] = str(comp['_id'])
+            
+            return render_template('turn.html', 
+                                username=username,
+                                users=all_users,
+                                recipes=recipes,
+                                competitions=competitions)
+    return redirect(url_for('home'))
+
+def convert_mongodb_ids(document):
+    """Convert all ObjectId instances in a document to strings."""
+    if isinstance(document, dict):
+        for key, value in document.items():
+            if isinstance(value, ObjectId):
+                document[key] = str(value)
+            elif isinstance(value, (dict, list)):
+                convert_mongodb_ids(value)
+    elif isinstance(document, list):
+        for item in document:
+            convert_mongodb_ids(item)
+    return document
+
+# Then use it in your socket handlers
+@socketio.on('join_competition')
+def handle_join_competition(data):
+    competition_id = data.get('competition_id')
+    if not competition_id:
+        return
+    
+    join_room(competition_id)
+    competition = competition_collection.find_one({'_id': ObjectId(competition_id)})
+    if competition:
+        competition = convert_mongodb_ids(competition)
+        emit('competition_state', competition, room=competition_id)
+
+# @socketio.on('join_competition')
+# def handle_join_competition(data):
+#     competition_id = data.get('competition_id')
+#     if not competition_id:
+#         return
+    
+#     join_room(competition_id)
+#     competition = competition_collection.find_one({'_id': ObjectId(competition_id)})
+#     if competition:
+#         emit('competition_state', competition, room=competition_id)
+
+@socketio.on('start_turn')
+def handle_start_turn(data):
+    competition_id = data.get('competition_id')
+    username = get_username_from_token(request.cookies.get('auth_token'))
+    
+    if not competition_id or not username:
+        return
+    
+    competition = competition_collection.find_one({'_id': ObjectId(competition_id)})
+    if not competition or username not in [competition['player1'], competition['player2']]:
+        return
+    
+    with competition_locks.get(competition_id, Lock()):
+        if competition['current_player'] != username:
+            return
+            
+        current_time = time.time()
+        competition_collection.update_one(
+            {'_id': ObjectId(competition_id)},
+            {'$set': {
+                'turn_start_time': current_time,
+                'turn_active': True
+            }}
+        )
+        
+        emit('turn_started', {
+            'player': username,
+            'start_time': current_time
+        }, room=competition_id)
+        
+        if competition_id not in active_competitions:
+            active_competitions[competition_id] = True
+            socketio.start_background_task(competition_timer, competition_id)
+
+@socketio.on('end_turn')
+def handle_end_turn(data):
+    competition_id = data.get('competition_id')
+    username = get_username_from_token(request.cookies.get('auth_token'))
+    
+    if not competition_id or not username:
+        return
+        
+    with competition_locks.get(competition_id, Lock()):
+        competition = competition_collection.find_one({'_id': ObjectId(competition_id)})
+        if not competition or competition['current_player'] != username:
+            return
+            
+        current_time = time.time()
+        elapsed_time = current_time - competition['turn_start_time']
+        
+        time_field = 'player1_time' if username == competition['player1'] else 'player2_time'
+        next_player = competition['player2'] if username == competition['player1'] else competition['player1']
+        
+        competition_collection.update_one(
+            {'_id': ObjectId(competition_id)},
+            {'$inc': {time_field: elapsed_time},
+             '$set': {
+                'current_player': next_player,
+                'turn_active': False,
+                'last_turn_end': current_time
+             }}
+        )
+        
+        updated_competition = competition_collection.find_one({'_id': ObjectId(competition_id)})
+        # Convert ObjectId to string
+        updated_competition['_id'] = str(updated_competition['_id'])
+        if 'recipe_id' in updated_competition:
+            updated_competition['recipe_id'] = str(updated_competition['recipe_id'])
+            
+        emit('turn_ended', {
+            'player': username,
+            'elapsed_time': elapsed_time,
+            'next_player': next_player,
+            'player1_total_time': updated_competition['player1_time'],
+            'player2_total_time': updated_competition['player2_time']
+        }, room=f"competition_{competition_id}")
+# @socketio.on('end_turn')
+# def handle_end_turn(data):
+#     competition_id = data.get('competition_id')
+#     username = get_username_from_token(request.cookies.get('auth_token'))
+    
+#     if not competition_id or not username:
+#         return
+        
+#     with competition_locks.get(competition_id, Lock()):
+#         competition = competition_collection.find_one({'_id': ObjectId(competition_id)})
+#         if not competition or competition['current_player'] != username:
+#             return
+            
+#         current_time = time.time()
+#         elapsed_time = current_time - competition['turn_start_time']
+        
+#         time_field = 'player1_time' if username == competition['player1'] else 'player2_time'
+#         next_player = competition['player2'] if username == competition['player1'] else competition['player1']
+        
+#         competition_collection.update_one(
+#             {'_id': ObjectId(competition_id)},
+#             {'$inc': {time_field: elapsed_time},
+#              '$set': {
+#                 'current_player': next_player,
+#                 'turn_active': False,
+#                 'last_turn_end': current_time
+#              }}
+#         )
+        
+#         updated_competition = competition_collection.find_one({'_id': ObjectId(competition_id)})
+#         emit('turn_ended', {
+#             'player': username,
+#             'elapsed_time': elapsed_time,
+#             'next_player': next_player,
+#             'player1_total_time': updated_competition['player1_time'],
+#             'player2_total_time': updated_competition['player2_time']
+#         }, room=competition_id)
+
+def competition_timer(competition_id):
+    """Background task to send timer updates every second"""
+    while active_competitions.get(competition_id):
+        competition = competition_collection.find_one({'_id': ObjectId(competition_id)})
+        if not competition or not competition.get('turn_active'):
+            continue
+            
+        current_time = time.time()
+        elapsed_time = current_time - competition['turn_start_time']
+        
+        socketio.emit('timer_update', {
+            'elapsed_time': elapsed_time,
+            'current_player': competition['current_player']
+        }, room=competition_id)
+        
+        # Check if turn time limit exceeded (5 minutes)
+        if elapsed_time > 300:  # 5 minutes in seconds
+            handle_end_turn({'competition_id': str(competition['_id'])})
+            
+        socketio.sleep(1)  # Update every second
+
+# Add these new routes and socket handlers to server.py
+
+@app.route('/competition/<competition_id>')
+@limiter.limit("10 per 10 seconds")
+def competition_room(competition_id):
+    token = request.cookies.get('auth_token')
+    print(token)
+
+    if not token:
+        return redirect(url_for('home'))
+        
+    username = get_username_from_token(token)
+    if not username:
+        return redirect(url_for('home'))
+        
+    try:
+        competition = competition_collection.find_one({'_id': ObjectId(competition_id)})
+        if not competition:
+            return "Competition not found", 404
+            
+        # Check if user is part of the competition
+        if username not in [competition['player1'], competition['player2']]:
+            # Check if they're allowed to spectate (you can add spectator logic here)
+            return "Not authorized to view this competition", 403
+            
+        return render_template(
+            'competition_room.html',
+            competition=competition,
+            username=username,
+            is_current_player=username == competition['current_player']
+        )
+    except Exception as e:
+        return str(e), 400
+
+# Add these to your socket event handlers
+@socketio.on('join_competition_room')
+def handle_join_room(data):
+    competition_id = data.get('competition_id')
+    username = get_username_from_token(request.cookies.get('auth_token'))
+    
+    if not competition_id or not username:
+        return
+    
+    room = f"competition_{competition_id}"
+    join_room(room)
+    
+    # Update connected users for this competition
+    competition = competition_collection.find_one({'_id': ObjectId(competition_id)})
+    if competition:
+        connected_users = competition.get('connected_users', [])
+        if username not in connected_users:
+            competition_collection.update_one(
+                {'_id': ObjectId(competition_id)},
+                {'$addToSet': {'connected_users': username}}
+            )
+            
+        # Emit updated user list to all users in the room
+        emit('user_joined', {
+            'username': username,
+            'connected_users': connected_users + [username]
+        }, room=room)
+
+@socketio.on('leave_competition_room')
+def handle_leave_room(data):
+    competition_id = data.get('competition_id')
+    username = get_username_from_token(request.cookies.get('auth_token'))
+    
+    if not competition_id or not username:
+        return
+        
+    room = f"competition_{competition_id}"
+    leave_room(room)
+    
+    # Remove user from connected users
+    competition_collection.update_one(
+        {'_id': ObjectId(competition_id)},
+        {'$pull': {'connected_users': username}}
+    )
+    
+    competition = competition_collection.find_one({'_id': ObjectId(competition_id)})
+    if competition:
+        emit('user_left', {
+            'username': username,
+            'connected_users': competition.get('connected_users', [])
+        }, room=room)
+
+# Modify your create_competition route to redirect to the new page
+@app.route('/create_competition', methods=['POST'])
+@limiter.limit("10 per 10 seconds")
+def create_competition():
+    # Remove @login_required and handle auth manually
+    token = request.cookies.get('auth_token')
+    if not token:
+        return jsonify({'error': 'Authentication required'}), 401
+        
+    challenger = get_username_from_token(token)
+    if not challenger:
+        return jsonify({'error': 'Invalid authentication'}), 401
+        
+    try:
+        opponent = request.form.get('opponent')
+        recipe_id = request.form.get('recipe_id')
+        
+        if not opponent or not recipe_id:
+            return jsonify({'error': 'Missing required fields'}), 400
+            
+        recipe = recipeCollection.find_one({'_id': ObjectId(recipe_id)})
+        if not recipe:
+            return jsonify({'error': 'Recipe not found'}), 404
+            
+        competition_id = competition_collection.insert_one({
+            'player1': challenger,
+            'player2': opponent,
+            'recipe_id': recipe_id,
+            'recipe_name': recipe['recipe'],
+            'current_player': challenger,
+            'player1_time': 0,
+            'player2_time': 0,
+            'turn_active': False,
+            'created_at': time.time(),
+            'status': 'pending',
+            'connected_users': [challenger]
+        }).inserted_id
+        
+        competition_locks[str(competition_id)] = Lock()
+        
+        return jsonify({
+            'competition_id': str(competition_id),
+            'redirect_url': f'/competition/{str(competition_id)}'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/get_users', methods=['GET'])
+@limiter.limit("10 per 10 seconds")
+def get_users():
+    # Get current user to exclude from list
+    current_user = get_username_from_token(request.cookies.get('auth_token'))
+    if not current_user:
+        return jsonify({'error': 'Not authenticated'}), 401
+        
+    # Get all users except current user
+    users = list(users_collection.find(
+        {"username": {"$ne": current_user}}, 
+        {"username": 1, "_id": 0}
+    ))
+    
+    return jsonify({'users': [user['username'] for user in users]})
+
+def get_username_from_token(token):
+    """Helper function to get username from auth token"""
+    if not token:
+        return None
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    token_doc = tokens_collection.find_one({'token': token_hash})
+    return token_doc['username'] if token_doc else None
 
 
 # Checks to see if the current ip is blocked for DOS reasons
@@ -406,5 +784,7 @@ def add_friend():
 def auth():
     return render_template('auth.html')
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)
+
+
