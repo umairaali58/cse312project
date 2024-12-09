@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cooking Competitions</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .competition-card {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .timer {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .users-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+
+        .user-item {
+            padding: 10px;
+            margin: 5px 0;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .user-item:hover {
+            background-color: #f0f0f0;
+        }
+
+        .selected-user {
+            background-color: #e0e0ff;
+        }
+
+        .competition-status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            display: inline-block;
+            margin: 5px 0;
+        }
+
+        .status-active {
+            background-color: #e6ffe6;
+            color: #006400;
+        }
+
+        .status-pending {
+            background-color: #fff3e0;
+            color: #e65100;
+        }
+
+        .button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.2s;
+        }
+
+        .primary-button {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .primary-button:hover {
+            background-color: #45a049;
+        }
+
+        .secondary-button {
+            background-color: #f44336;
+            color: white;
+        }
+
+        .secondary-button:hover {
+            background-color: #da190b;
+        }
+
+        .recipe-select {
+            margin: 10px 0;
+            padding: 10px;
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .nav-links {
+            margin-top: 10px;
+        }
+
+        .nav-links a {
+            margin-right: 15px;
+            color: #333;
+            text-decoration: none;
+        }
+
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="header-section">
+        <h1>Cooking Competitions</h1>
+        <div class="nav-links">
+            <a href="{{ url_for('recipe') }}">Recipe List</a>
+            <a href="{{ url_for('home') }}">Home</a>
+            {% if username %}
+                <span>Logged in as: {{ username }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if username %}
+        <div id="competition-section">
+            <button onclick="showNewCompetitionForm()" class="button primary-button">Start New Competition</button>
+            
+            <div id="new-competition-form" class="hidden">
+                <h3>Challenge Someone to Cook</h3>
+                <div class="users-list">
+                    <h4>Select an Opponent:</h4>
+                    {% for user in users %}
+                        <div class="user-item" onclick="selectOpponent('{{ user.username }}')">
+                            {{ user.username }}
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <select id="recipe-select" class="recipe-select">
+                    <option value="">Select a Recipe</option>
+                    {% if recipes %}
+                        {% for recipe in recipes %}
+                            <option value="{{ recipe._id }}">{{ recipe.recipe }}</option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="" disabled>No recipes available</option>
+                    {% endif %}
+                </select>
+                <!-- Add this for debugging -->
+                <!-- <script>
+                    console.log('Available recipes:', {{ recipes|tojson|safe }});
+                </script> -->
+                <input type="hidden" id="opponent-username">
+                <button onclick="createCompetition()" class="button primary-button">Send Challenge</button>
+            </div>
+
+            <h2>Your Active Competitions</h2>
+            <div id="active-competitions">
+                {% for competition in competitions %}
+                    <div class="competition-card" id="competition-{{ competition._id }}">
+                        <div class="competition-header">
+                            <h3>{{ competition.recipe_name }}</h3>
+                            <div class="competition-status {{ 'status-active' if competition.turn_active else 'status-pending' }}">
+                                {{ 'Active' if competition.turn_active else 'Pending' }}
+                            </div>
+                        </div>
+                        
+                        <div class="players-info">
+                            <p><strong>Players:</strong></p>
+                            <p>{{ competition.player1 }} vs {{ competition.player2 }}</p>
+                            <p><strong>Current Turn:</strong> {{ competition.current_player }}</p>
+                        </div>
+                        
+                        <div class="timer-section">
+                            <p>Turn Timer: <span class="timer">0:00</span></p>
+                            <p>{{ competition.player1 }} Total Time: 
+                                <span class="player1-time">
+                                    {{ '{:02d}:{:02d}'.format((competition.player1_time|int) // 60, (competition.player1_time|int) % 60) }}
+                                </span>
+                            </p>
+                            <p>{{ competition.player2 }} Total Time: 
+                                <span class="player2-time">
+                                    {{ '{:02d}:{:02d}'.format((competition.player2_time|int) // 60, (competition.player2_time|int) % 60) }}
+                                </span>
+                            </p>
+                        </div>
+                        
+                        <button onclick="joinCompetitionRoom('{{ competition._id }}')" class="button primary-button">
+                            Join Competition Room
+                        </button>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% else %}
+        <p>Please <a href="{{ url_for('home') }}">login</a> to participate in competitions.</p>
+    {% endif %}
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const username = "{{ username }}";
+        
+        function showNewCompetitionForm() {
+            document.getElementById('new-competition-form').classList.remove('hidden');
+        }
+        
+        function selectOpponent(username) {
+            document.getElementById('opponent-username').value = username;
+            document.querySelectorAll('.user-item').forEach(item => {
+                item.classList.remove('selected-user');
+            });
+            event.target.classList.add('selected-user');
+        }
+        
+        function joinCompetitionRoom(competitionId) {
+            window.location.href = `/competition/${competitionId}`;
+        }
+        
+        function createCompetition() {
+    const opponent = document.getElementById('opponent-username').value;
+    const recipeSelect = document.getElementById('recipe-select');
+    const recipeId = recipeSelect.value;
+    
+    if (!opponent) {
+        alert('Please select an opponent');
+        return;
+    }
+    if (!recipeId) {
+        alert('Please select a recipe');
+        return;
+    }
+    
+    fetch('/create_competition', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `opponent=${encodeURIComponent(opponent)}&recipe_id=${encodeURIComponent(recipeId)}`
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        if (data.redirect_url) {
+            window.location.href = data.redirect_url;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error creating competition. Please try again.');
+    });
+}
+        // Join all competitions on page load for updates
+        document.querySelectorAll('.competition-card').forEach(card => {
+            const competitionId = card.id.split('-')[1];
+            socket.emit('join_competition', { competition_id: competitionId });
+        });
+        
+        socket.on('competition_state', (competition) => {
+            const card = document.getElementById(`competition-${competition._id}`);
+            if (card) {
+                updateCompetitionCard(card, competition);
+            }
+        });
+        
+        socket.on('timer_update', (data) => {
+            const cards = document.querySelectorAll('.competition-card');
+            cards.forEach(card => {
+                const timerElement = card.querySelector('.timer');
+                if (timerElement) {
+                    timerElement.textContent = formatTime(data.elapsed_time);
+                }
+            });
+        });
+        
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = Math.floor(seconds % 60);
+            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+        
+        function updateCompetitionCard(card, competition) {
+            card.querySelector('.timer').textContent = '0:00';
+            const status = competition.turn_active ? 'Active' : 'Pending';
+            card.querySelector('.competition-status').textContent = status;
+            card.querySelector('.competition-status').className = 
+                `competition-status status-${status.toLowerCase()}`;
+        }
+    </script>
+</body>
+</html>
