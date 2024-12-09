@@ -154,10 +154,10 @@ def generate_file_name_for_storage():
     return "media" + str(fileCount + 1)
 
 
-# @app.after_request
-# def add_header(response):
-#     response.headers['X-Content-Type-Options'] = 'nosniff'
-#     return response
+@app.after_request
+def add_header(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 @app.route('/')
 @limiter.limit("10 per 10 seconds")
