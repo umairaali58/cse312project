@@ -834,48 +834,48 @@ def home():
     # If no valid token is found, redirect to the login page
     return render_template('home.html', username=None)
 
-@app.route('/messages', methods=['GET'])
-@limiter.limit("16 per 10 seconds")
-@check_ip_block
-def messages():
-    token = request.cookies.get('auth_token')
-    if token: 
-        hashed_token = hashlib.sha256(token.encode()).hexdigest()
-    # if current_user.is_authenticated:
-        # Retrieve the stored hashed token for the current user
-        user_token = tokens_collection.find_one({"token": hashed_token})
-        if user_token and user_token['token'] == hashlib.sha256(token.encode()).hexdigest():
-            return render_template('messages.html', username=user_token['username'])
-        
-    # If no valid token is found, redirect to the login page
-    return render_template('home.html', username=None)
+# @app.route('/messages', methods=['GET'])
+# @limiter.limit("16 per 10 seconds")
+# @check_ip_block
+# def messages():
+#     token = request.cookies.get('auth_token')
+#     if token:
+#         hashed_token = hashlib.sha256(token.encode()).hexdigest()
+#     # if current_user.is_authenticated:
+#         # Retrieve the stored hashed token for the current user
+#         user_token = tokens_collection.find_one({"token": hashed_token})
+#         if user_token and user_token['token'] == hashlib.sha256(token.encode()).hexdigest():
+#             return render_template('messages.html', username=user_token['username'])
+#
+#     # If no valid token is found, redirect to the login page
+#     return render_template('home.html', username=None)
 
-@app.route('/add_friend', methods=['POST'])
-@check_ip_block
-@login_required
-def add_friend():
-    data = request.form
-    user = data.get('username')
-
-    if not user:
-        return jsonify({"error": "Target username is required"}), 400
-
-    if user == current_user.username:
-        return jsonify({"error": "You cannot send a friend request to yourself"}), 400
-
-    target_user = users_collection.find_one({"username": user})
-    if not target_user:
-        return jsonify({"error": "User not found"}), 404
-
-    if user in current_user.friends:
-        return jsonify({"error": "You are already friends"}), 400
-
-    users_collection.update_one(
-        {"username": user},
-        {"$addToSet": {"friend_requests": current_user.username}}
-    )
-
-    return jsonify({"success": f"added new friend"}), 200
+# @app.route('/add_friend', methods=['POST'])
+# @check_ip_block
+# @login_required
+# def add_friend():
+#     data = request.form
+#     user = data.get('username')
+#
+#     if not user:
+#         return jsonify({"error": "Target username is required"}), 400
+#
+#     if user == current_user.username:
+#         return jsonify({"error": "You cannot send a friend request to yourself"}), 400
+#
+#     target_user = users_collection.find_one({"username": user})
+#     if not target_user:
+#         return jsonify({"error": "User not found"}), 404
+#
+#     if user in current_user.friends:
+#         return jsonify({"error": "You are already friends"}), 400
+#
+#     users_collection.update_one(
+#         {"username": user},
+#         {"$addToSet": {"friend_requests": current_user.username}}
+#     )
+#
+#     return jsonify({"success": f"added new friend"}), 200
 
 
 @app.route('/auth', methods=['GET'])
